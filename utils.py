@@ -23,9 +23,9 @@ class State:
     }
 
     # Program counter
-    pc: int
+    pc: int = 0
     # 32 32-bit registers
-    registers: typing.Annotated[list[int], 32]
+    registers: typing.Annotated[list[int], 32] = [0] * 32
     # Pipeline register before ID stage
     pipeline_register_ID: dict[str, int] = {"pc": 0, "instruction": 0}
     # Pipeline register before EX stage

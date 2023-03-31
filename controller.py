@@ -11,25 +11,32 @@ class Controller:
             data: bytes = file.read()
 
         self.model = Model(
-            observer_function=self.view.rerender,
             instruction_memory=data,
             data_memory_size=data_memory_size,
         )
         self.step = step_mode
         self.run = True
 
-        print(f"data memory size is {len(self.model.state.data_memory)}\n")
+        # print(f"data memory size is {len(self.model.state.data_memory)}\n")
 
     def control_loop(self):
+        print("----------------------------")
+
         if self.step:
             while self.run:
                 self.update_model()
+                print("----------------------------", end="")
+                try:
+                    input("")
+                except KeyboardInterrupt:
+                    sys.exit(0)
         else:
             while self.run:
                 self.update_model()
 
     def update_model(self):
-        pass
+        self.model.state.stats["cycle_count"] += 1
+        self.model.changed()
 
 
 if __name__ == "__main__":
@@ -40,7 +47,7 @@ if __name__ == "__main__":
         print(tty.ERR + "error: " + tty.END + err.msg)
         sys.exit(1)
 
-    print(f"argv is {sys.argv[1:]}\nopt is {options}")
+    # print(f"argv is {sys.argv[1:]}\nopt is {options}")
 
     # If no arguments are specified at all, or only flags are specified, error
     if len(options[1]) == 0:
@@ -56,15 +63,16 @@ if __name__ == "__main__":
 
     for opt, arg in options[0]:
         if opt in ("-h", "--help"):
-            pass
+            print("usage: python3 controller.py [FLAGS] [INPUT FILE]")
+            sys.exit(0)
         elif opt in ("-s", "--step"):
-            pass
+            step = True
         elif opt in ("-m", "--memory"):
-            pass
+            data_memory_size = arg
 
     file_name = options[1][0]
 
-    print(f"file {file_name}\nopts {options}")
+    # print(f"file {file_name}\nopts {options}")
 
     controller = Controller(file_name, data_memory_size, step)
-    # controller.control_loop()
+    controller.control_loop()
