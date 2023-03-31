@@ -8,4 +8,5 @@ class View:
 
     def rerender(self, state: State):
         """ """
+        print("")
         pass

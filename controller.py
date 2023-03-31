@@ -15,13 +15,18 @@ class Controller:
             instruction_memory=data,
             data_memory_size=data_memory_size,
         )
+        self.step = step_mode
         self.run = True
 
         print(f"data memory size is {len(self.model.state.data_memory)}\n")
 
     def control_loop(self):
-        while self.run:
-            self.update_model()
+        if self.step:
+            while self.run:
+                self.update_model()
+        else:
+            while self.run:
+                self.update_model()
 
     def update_model(self):
         pass
