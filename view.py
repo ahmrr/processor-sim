@@ -1,10 +1,11 @@
 from utils import *
 
 
-class View():
+class View:
     def __init__(self):
-        """ Initialize a new view
-        """
+        """Initialize a new view"""
+        pass
 
-    def rerender(self):
+    def rerender(self, state: State):
+        """ """
         pass
