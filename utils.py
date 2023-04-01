@@ -1,5 +1,7 @@
 import sys
+import types
 import typing
+import dataclasses
 
 if __name__ == "__main__":
     sys.exit(0)
@@ -8,71 +10,126 @@ if __name__ == "__main__":
 class State:
     """Represents the state of the processor
 
-    registers: typing.Annotated[list[int], 32] - 32 32-bit MIPS registers
+    `stats: types.SimpleNamespace` - the general statistics of the processor
+        `cycles: int` - the total cycle count
+        `mem_reads: int` - the total number of memory reads
+        `mem_writes: int` - the total number of memory writes
+        `alu_add_cnt: int` - the total number of ALU add instructions
+        `alu_sub_cnt: int` - the total number of ALU sub instructions
+        `alu_and_cnt: int` - the total number of ALU and instructions
+        `alu_or_cnt: int` - the total number of ALU or instructions
+        `alu_slt_cnt: int` - the total number of ALU slt (set less-than) instructions
+
+    `pc: int` - the current program counter
+    `regs: list[int]` - the values of each of the 32 registers
+
+    `pl_regs: class` - stores information of each of the pipeline registers
+        `IF_ID: class` - the pipeline register between the IF and ID stages
+            `pc: int` - the original PC + 4, forwarded to the EX stage (if needed for branch instruction)
+            `inst: int` - the raw data instruction, not decoded
+        `ID_EX: class` - the pipeline register between the ID and EX stages
+            `pc: int` - the original PC + 4, forwarded to the EX stage (if needed for branch instruction)
+            `reg_1: int` - the value stored in the first register operand specified in the instruction, if available
+            `reg_2: int` - the value stored in the second register operand specified in the instruction, if available
+            `imm: int` - the value stored in the immediate field in the instruction, if available
+            `cl: class` - the control lines (and ALU operation/funct) set for this stage
+                `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
+                `reg_write: bool` - whether to write to a register (1) or do nothing (0)
+                `mem_read: bool` - whether memory read access is needed for this instruction (1) or not (0)
+                `mem_write: bool` - whether memory write access is needed for this instruction (1) or not (0)
+                `reg_dst: bool` - whether the register destination number comes from from the rd field (1) or rt field (0)
+                `branch: bool` - whether the current instruction is a branch instruction
+                `alu_src: bool` - whether the second ALU operand comes from the sign-extended immediate in the instruction (1) or from the register file (0)
+                `alu_op: int` - the funct of the ALU operation to do (if applicable)
+        `EX_MEM: class` - the pipeline register between the EX and MEM stages
+            `branch_addr: int` - the calculated branch target address, if the current instruction is branch
+            `zero_flag: bool` - whether the ALU subtraction resulted in a 0 (if slt, bne, or be instruction)
+            `alu_result: int` - the result of the ALU operation
+            `reg_2: int` - the second register value, in case the instruction is a sw instruction
+            `cl: class` - the control lines (and ALU operation/funct) set for this stage
+                `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
+                `reg_write: bool` - whether to write to a register (1) or do nothing (0)
+                `mem_read: bool` - whether memory read access is needed for this instruction (1) or not (0)
+                `mem_write: bool` - whether memory write access is needed for this instruction (1) or not (0)
+                `branch: bool` - whether the current instruction is a branch instruction
+        `MEM_WB: class` - the pipeline register between the MEM and WB stages
+            `alu_result: int` - the result of the ALU operation
+            `read_data: bool` - the data read from memory (if applicable), for lw instructions
+            `cl: class` - the control lines (and ALU operation/funct) set for this stage
+                `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
+                `reg_write: bool` - whether to write to a register (1) or do nothing (0)
+    `data_mem: bytes` - the data memory bytes buffer
+    `inst_mem: bytes` - the instruction memory (input file) bytes buffer
     """
 
-    stats: dict[str, int] = {
-        "cycle_count": 0,
-        "mem_read_count": 0,
-        "mem_write_count": 0,
-        "alu_add_count": 0,
-        "alu_sub_count": 0,
-        "alu_and_count": 0,
-        "alu_or_count": 0,
-        "alu_slt_count": 0,
-    }
+    class stats:
+        cycles = 0
+        mem_reads = 0
+        mem_writes = 0
+        alu_add_cnt = 0
+        alu_sub_cnt = 0
+        alu_and_cnt = 0
+        alu_or_cnt = 0
+        alu_slt_cnt = 0
 
-    # Program counter
-    pc: int = 0
-    # 32 32-bit registers
-    registers: typing.Annotated[list[int], 32] = [0] * 32
-    # Pipeline register before ID stage
-    pipeline_register_ID: dict[str, int] = {"pc": 0, "instruction": 0}
-    # Pipeline register before EX stage
-    pipeline_register_EX: dict[str, int] = {
-        "pc": 0,
-        "reg1": 0,
-        "reg2": 0,
-        "imm": 0,
-        "ctrl_mem_to_reg": False,
-        "ctrl_reg_write": False,
-        "ctrl_mem_read": False,
-        "ctrl_mem_write": False,
-        "ctrl_reg_dst": False,
-        "ctrl_branch": False,
-        "ctrl_alu_src": False,
-        "ctrl_alu_op": 0,
-    }
-    # Pipeline register before MEM stage
-    pipeline_register_MEM: dict[str, int] = {
-        "branch_pc": 0,
-        "zero_flag": 0,
-        "alu_result": 0,
-        "reg2": 0,
-        "ctrl_mem_to_reg": False,
-        "ctrl_reg_write": False,
-        "ctrl_mem_read": False,
-        "ctrl_mem_write": False,
-        "ctrl_branch": False,
-    }
-    # Pipeline register before WB stage
-    pipeline_register_WB: dict[str, int] = {
-        "alu_result": 0,
-        "read_data": 0,
-        "ctrl_mem_to_reg": False,
-        "ctrl_reg_write": False,
-    }
+    pc = 0
+    regs = [0] * 32
+
+    class pl_regs:
+        class IF_ID:
+            pc = 0
+            inst = 0
+
+        class ID_EX:
+            pc = 0
+            reg_1 = 0
+            reg_2 = 0
+            imm = 0
+
+            class cl:
+                mem_to_reg = False
+                reg_write = False
+                mem_read = False
+                mem_write = False
+                reg_dst = False
+                branch = False
+                alu_src = False
+                alu_op = 0
+
+        class EX_MEM:
+            branch_addr = 0
+            zero_flag = False
+            alu_result = 0
+            reg_2 = 0
+
+            class cl:
+                mem_to_reg = False
+                reg_write = False
+                mem_read = False
+                mem_write = False
+                branch = False
+
+        class MEM_WB:
+            alu_result = 0
+            read_data = 0
+
+            class cl:
+                mem_to_reg = False
+                reg_write = False
+
     # Data memory (size TBD by user/default size is 1024B)
-    data_memory: bytes
+    data_mem: bytes
     # Instruction memory (size TBD by user's input file)
-    instruction_memory: bytes
+    inst_mem: bytes
     # Control lines
-    control_lines: dict[str, bool] = {
-        "reg_write": False,
-        "mem_read": False,
-        "mem_write": False,
-        "reg_read": False,
-    }
+    # control_lines = types.SimpleNamespace(
+    #     {
+    #         "reg_write": False,
+    #         "mem_read": False,
+    #         "mem_write": False,
+    #         "reg_read": False,
+    #     }
+    # )
 
 
 class tty:

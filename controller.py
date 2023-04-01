@@ -17,11 +17,12 @@ class Controller:
         self.step = step_mode
         self.run = True
 
-        # print(f"data memory size is {len(self.model.state.data_memory)}\n")
-
     def control_loop(self):
+        """Manages the global control loop"""
+
         print("----------------------------")
 
+        # Call update_model, either in steps or continuously
         if self.step:
             while self.run:
                 self.update_model()
@@ -33,9 +34,12 @@ class Controller:
         else:
             while self.run:
                 self.update_model()
+                print("----------------------------", end="")
 
     def update_model(self):
-        self.model.state.stats["cycle_count"] += 1
+        """Updates the model every clock cycle based on some logic"""
+
+        self.model.state.stats.cycles += 1
         self.model.changed()
 
 
