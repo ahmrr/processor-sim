@@ -6,19 +6,27 @@ import typing
 class Model:
     def __init__(
         self,
-        instruction_memory: bytes,
-        data_memory_size: int,
+        inst_memory: bytearray,
+        data_memory: bytearray,
     ):
         """Initialize a new model, with specified instruction memory (input file) and data memory size"""
 
         self.state = State()
-        print(data_memory_size)
-        self.state.data_memory = bytearray(data_memory_size)
+        print(f"inst_memory:\t{len(inst_memory)} bytes")
+        print(f"data_memory:\t{len(data_memory)} bytes")
+        self.state.inst_mem = inst_memory
+        self.state.data_mem = data_memory
+
         self.view = View()
         self.observer_function = self.view.rerender
 
     def changed(self):
         """Must be called whenever a value (or multiple values) are modified in this model's state"""
+
+        print(f"binary inst:\t{fetch_inst(self.state.pc, self.state.inst_mem):#032b}")
+        print(
+            f"MIPS inst:\t{decode_inst(fetch_inst(self.state.pc, self.state.inst_mem))}"
+        )
 
         self.observer_function(self.state)
 

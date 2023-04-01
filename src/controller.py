@@ -11,9 +11,13 @@ class Controller:
         with open(input_file, "rb") as file:
             data = file.read()
 
-        self.model = Model(data, data_memory_size)
+        print("----------------------------")
+
+        self.model = Model(bytearray(data), bytearray(data_memory_size))
         self.step = step_mode
         self.run = True
+
+        print(f"step:\t\t{step_mode}")
 
     def control_loop(self):
         """Manages the global control loop"""
@@ -32,13 +36,21 @@ class Controller:
         else:
             while self.run:
                 self.update_model()
-                print("----------------------------", end="")
+                print("----------------------------")
+
+        print("program execution finished")
+        print("----------------------------")
 
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
-        self.model.state.stats.cycles += 1
         self.model.changed()
+
+        self.model.state.stats.cycles += 1
+        self.model.state.pc += 4
+
+        if self.model.state.pc >= len(self.model.state.inst_mem):
+            self.run = False
 
 
 if __name__ == "__main__":
@@ -74,7 +86,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    print(args)
 
     controller = Controller(args.input_file[0], args.memory[0], args.step)
     controller.control_loop()

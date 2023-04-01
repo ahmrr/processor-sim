@@ -1,7 +1,5 @@
 import sys
-import types
 import typing
-import dataclasses
 
 if __name__ == "__main__":
     sys.exit(0)
@@ -118,9 +116,9 @@ class State:
                 reg_write = False
 
     # Data memory (size TBD by user/default size is 1024B)
-    data_mem: bytes
+    data_mem: bytearray
     # Instruction memory (size TBD by user's input file)
-    inst_mem: bytes
+    inst_mem: bytearray
     # Control lines
     # control_lines = types.SimpleNamespace(
     #     {
@@ -140,3 +138,63 @@ class tty:
     WRN = "\033[95m"
     ERR = "\033[91;1m"
     INF = "\033[94m"
+
+
+def fetch_inst(pc: int, inst_mem: bytearray) -> int:
+    return int.from_bytes(inst_mem[pc : pc + 4])
+
+
+def decode_inst(inst: int) -> str:
+    """Converts binary to a MIPS instruction"""
+
+    inst_opcode = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
+    inst_func = inst & 0b000000_00000_00000_00000_00000_111111
+
+    for key, val in instructions.items():
+        if val["i_type"] == "R" and val["i_func"] == inst_func:
+            inst_rs = (inst & 0b000000_11111_00000_00000_00000_000000) >> 21
+            inst_rt = (inst & 0b000000_00000_11111_00000_00000_000000) >> 16
+            inst_rd = (inst & 0b000000_00000_00000_11111_00000_000000) >> 11
+
+            decoded_inst = f"{key} ${inst_rd}, ${inst_rs}, ${inst_rt}"
+        elif val["i_type"] == "I" and val["i_opcode"] == inst_opcode:
+            inst_rs = (inst & 0b000000_11111_00000_00000_00000_000000) >> 21
+            inst_rt = (inst & 0b000000_00000_11111_00000_00000_000000) >> 16
+            inst_imm = inst & 0b000000_00000_00000_11111_11111_111111
+
+            if inst_imm & 0b000000_00000_00000_10000_00000_000000:
+                inst_imm = inst_imm - 0b000000_00000_00001_00000_00000_000000
+
+            if val["i_ops"] == 2:
+                decoded_inst = f"{key} ${inst_rt}, {inst_imm}(${inst_rs})"
+            elif val["i_ops"] == 3:
+                decoded_inst = f"{key} ${inst_rs}, ${inst_rt}, {inst_imm}"
+        elif val["i_type"] == "J" and val["i_opcode"] == inst_opcode:
+            inst_addr = inst & 0b000000_11111_11111_11111_11111_111111
+
+            if inst_imm & 0b000000_10000_00000_00000_00000_000000:
+                inst_imm = inst_imm - 0b000001_00000_00000_00000_00000_000000
+
+            decoded_inst = f"{key} {inst_addr}"
+
+    return decoded_inst
+
+
+class Instruction(typing.TypedDict):
+    i_opcode: int
+    i_type: typing.Literal["I", "R", "J"]
+    i_func: typing.NotRequired[int]
+    i_ops: int
+
+
+instructions: dict[str, Instruction] = {
+    "lw": {"i_opcode": 0b100011, "i_type": "I", "i_ops": 2},
+    "sw": {"i_opcode": 0b101011, "i_type": "I", "i_ops": 2},
+    "beq": {"i_opcode": 0b000100, "i_type": "I", "i_ops": 3},
+    "add": {"i_opcode": 0b000000, "i_type": "R", "i_ops": 3, "i_func": 0b100000},
+    "sub": {"i_opcode": 0b000000, "i_type": "R", "i_ops": 3, "i_func": 0b100010},
+    "and": {"i_opcode": 0b000000, "i_type": "R", "i_ops": 3, "i_func": 0b100100},
+    "or": {"i_opcode": 0b000000, "i_type": "R", "i_ops": 3, "i_func": 0b100101},
+    "slt": {"i_opcode": 0b000000, "i_type": "R", "i_ops": 3, "i_func": 0b101010},
+    "j": {"i_opcode": 0b000010, "i_type": "J", "i_ops": 1},
+}
