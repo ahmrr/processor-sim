@@ -9,14 +9,17 @@ class Model:
         instruction_memory: bytes,
         data_memory_size: int,
     ):
-        """Initialize a new model"""
+        """Initialize a new model, with specified instruction memory (input file) and data memory size"""
 
         self.state = State()
-        self.state.data_memory = bytes(data_memory_size)
+        print(data_memory_size)
+        self.state.data_memory = bytearray(data_memory_size)
         self.view = View()
         self.observer_function = self.view.rerender
 
     def changed(self):
+        """Must be called whenever a value (or multiple values) are modified in this model's state"""
+
         self.observer_function(self.state)
 
     def run_IF(self):
