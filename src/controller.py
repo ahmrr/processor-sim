@@ -7,13 +7,20 @@ from utils import *
 
 
 class Controller:
-    def __init__(self, input_file: str, data_memory_size: int, step_mode: bool):
+    def __init__(self, input_file: str, data_mem_size: int, step_mode: bool):
+        """Initialize a new controller"""
+
+        # * Read in byte contents of input file
         with open(input_file, "rb") as file:
             data = file.read()
 
         print("----------------------------")
+        print(
+            "please note that decoded instructions' immediate values are two's-complement signed decimals\n"
+        )
 
-        self.model = Model(bytearray(data), bytearray(data_memory_size))
+        # * Create a new model with specified instruction and data memory
+        self.model = Model(bytearray(data), bytearray(data_mem_size))
         self.step = step_mode
         self.run = True
 
@@ -24,7 +31,7 @@ class Controller:
 
         print("----------------------------")
 
-        # Call update_model, either in steps or continuously
+        # * Call update_model, either in steps or continuously
         if self.step:
             while self.run:
                 self.update_model()
@@ -44,20 +51,22 @@ class Controller:
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
-        self.model.changed()
+        self.model.run_IF()
+        self.model.run_ID()
+        self.model.run_EX()
+        self.model.run_MEM()
+        self.model.run_WB()
 
-        self.model.state.stats.cycles += 1
-        self.model.state.pc += 4
-
+        # * Exit if no more instructions
         if self.model.state.pc >= len(self.model.state.inst_mem):
             self.run = False
 
 
 if __name__ == "__main__":
+    # * Parse input args
     parser = argparse.ArgumentParser(
         description="Simulate a MIPS-ISA 5-stage pipelined processor"
     )
-
     parser.add_argument(
         "input_file",
         metavar="infile",
@@ -84,8 +93,8 @@ if __name__ == "__main__":
         type=int,
         help="specify custom size of data memory; default is 1024",
     )
-
     args = parser.parse_args()
 
+    # * Initialize a new controller, and loop it
     controller = Controller(args.input_file[0], args.memory[0], args.step)
     controller.control_loop()

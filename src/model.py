@@ -11,32 +11,41 @@ class Model:
     ):
         """Initialize a new model, with specified instruction memory (input file) and data memory size"""
 
-        self.state = State()
-        print(f"inst_memory:\t{len(inst_memory)} bytes")
-        print(f"data_memory:\t{len(data_memory)} bytes")
-        self.state.inst_mem = inst_memory
-        self.state.data_mem = data_memory
-
         self.view = View()
         self.observer_function = self.view.rerender
 
-    def changed(self):
-        """Must be called whenever a value (or multiple values) are modified in this model's state"""
-
-        print(f"binary inst:\t{fetch_inst(self.state.pc, self.state.inst_mem):#032b}")
-        print(
-            f"MIPS inst:\t{decode_inst(fetch_inst(self.state.pc, self.state.inst_mem))}"
-        )
-
-        self.observer_function(self.state)
+        self.state = State(self.observer_function)
+        self.state.inst_mem = inst_memory
+        self.state.data_mem = data_memory
+        print(f"inst_memory:\t{len(self.state.inst_mem)} bytes")
+        print(f"data_memory:\t{len(self.state.data_mem)} bytes")
 
     def run_IF(self):
         """Run the Instruction Fetch stage"""
+
+        # * Pass PC to pipeline register
+        self.state.pl_regs.IF_ID.pc = self.state.pc
+        # * Fetch instruction
+        self.state.pl_regs.IF_ID.inst = fetch_inst(self.state.pc, self.state.inst_mem)
+
+        # * Update cycles
+        self.state.cycles += 1
+
+        # * If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
+        if self.state.pl_regs.EX_MEM.cl.branch and self.state.pl_regs.EX_MEM.zero_flag:
+            self.state.pc += 4 + self.state.pl_regs.EX_MEM.branch_addr
+        # * Otherwise, go to next instruction
+        else:
+            self.state.pc += 4
 
         pass
 
     def run_ID(self):
         """Run the Instruction Decode stage"""
+
+        # * Pass PC ahead to next pipeline register
+        self.state.pl_regs.ID_EX.pc = self.state.pl_regs.IF_ID.pc
+        # * Pass appropriate
 
         pass
 

@@ -1,4 +1,5 @@
 import sys
+from collections.abc import Callable
 import typing
 
 if __name__ == "__main__":
@@ -8,8 +9,9 @@ if __name__ == "__main__":
 class State:
     """Represents the state of the processor
 
+    `cycles: int` - the total cycle count; whenever this is updated, the observer function is called
+
     `stats: types.SimpleNamespace` - the general statistics of the processor
-        `cycles: int` - the total cycle count
         `mem_reads: int` - the total number of memory reads
         `mem_writes: int` - the total number of memory writes
         `alu_add_cnt: int` - the total number of ALU add instructions
@@ -60,8 +62,25 @@ class State:
     `inst_mem: bytes` - the instruction memory (input file) bytes buffer
     """
 
+    def __init__(self, observer_function: Callable) -> None:
+        self.observer_function = observer_function
+
+    _cycles = 0
+
+    @property
+    def cycles(self):
+        return self._cycles
+
+    @cycles.setter
+    def cycles(self, value):
+        self.observer_function(self)
+        self._cycles = value
+
+    @cycles.deleter
+    def cycles(self):
+        del self._cycles
+
     class stats:
-        cycles = 0
         mem_reads = 0
         mem_writes = 0
         alu_add_cnt = 0
@@ -115,11 +134,11 @@ class State:
                 mem_to_reg = False
                 reg_write = False
 
-    # Data memory (size TBD by user/default size is 1024B)
+    # * Data memory (size TBD by user/default size is 1024B)
     data_mem: bytearray
-    # Instruction memory (size TBD by user's input file)
+    # * Instruction memory (size TBD by user's input file)
     inst_mem: bytearray
-    # Control lines
+    # * Control lines
     # control_lines = types.SimpleNamespace(
     #     {
     #         "reg_write": False,
@@ -172,12 +191,87 @@ def decode_inst(inst: int) -> str:
         elif val["i_type"] == "J" and val["i_opcode"] == inst_opcode:
             inst_addr = inst & 0b000000_11111_11111_11111_11111_111111
 
-            if inst_imm & 0b000000_10000_00000_00000_00000_000000:
-                inst_imm = inst_imm - 0b000001_00000_00000_00000_00000_000000
+            if inst_addr & 0b000000_10000_00000_00000_00000_000000:
+                inst_addr = inst_addr - 0b000001_00000_00000_00000_00000_000000
 
             decoded_inst = f"{key} {inst_addr}"
 
     return decoded_inst
+
+
+def data_hazard(inst_1: int, inst_2: int) -> bool:
+    """Checks if two instructions have a RAW data hazard"""
+
+    # * Get information of each instruction based on opcode/func field(s)
+    for key, val in instructions.items():
+        if (
+            val["i_type"] == "R"
+            and val["i_func"] == inst_1 & 0b000000_00000_00000_00000_00000_111111
+            or val["i_opcode"]
+            == (inst_1 & 0b111111_00000_00000_00000_00000_000000) >> 26
+        ):
+            inst_1_name = key
+            inst_1_info = val
+        if (
+            val["i_type"] == "R"
+            and val["i_func"] == inst_2 & 0b000000_00000_00000_00000_00000_111111
+            or val["i_opcode"]
+            == (inst_2 & 0b111111_00000_00000_00000_00000_000000) >> 26
+        ):
+            inst_2_name = key
+            inst_2_info = val
+
+    # * No data hazards with J-type instructions
+    if inst_1_info["i_type"] == "J" or inst_2_info["i_type"] == "J":
+        return False
+    # * If one instruction is R-type and the other is I-type
+    elif inst_1_info["i_type"] == "R" and inst_2_info["i_type"] == "I":
+        # inst_1_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
+        # inst_1_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
+        inst_1_rd = (inst_1 & 0b000000_00000_00000_11111_00000_000000) >> 11
+
+        inst_2_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
+        inst_2_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
+
+        # * Load or store op
+        if inst_1_info["i_ops"] == 2:
+            return inst_1_rd == inst_2_rs
+        # * Other I-type op
+        else:
+            return inst_1_rd == inst_2_rs or inst_1_rd == inst_2_rt
+    # * If one instruction is I-type and the other is R-type
+    elif inst_1_info["i_type"] == "I" and inst_2_info["i_type"] == "R":
+        return False
+    # * If both instructions are I-type
+    elif inst_1_info["i_type"] == "I" and inst_2_info["i_type"] == "I":
+        # inst_1_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
+        inst_1_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
+
+        inst_2_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
+        inst_2_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
+
+        # * First instruction is load, second is load/store op
+        if inst_1_name == "lw" and inst_2_info["i_ops"] == 2:
+            return inst_1_rt == inst_2_rs
+        # * First instruction is load, second is some other I-type op
+        elif inst_1_name == "lw" and inst_2_info["i_ops"] == 3:
+            return inst_1_rt == inst_2_rs or inst_1_rt == inst_2_rt
+        # * First instruction is some other I-type op
+        else:
+            return False
+    # * If both instructions are R-type
+    elif inst_1_info["i_type"] == "R" and inst_2_info["i_type"] == "R":
+        # inst_1_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
+        # inst_1_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
+        inst_1_rd = (inst_1 & 0b000000_00000_00000_11111_00000_000000) >> 11
+
+        inst_2_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
+        inst_2_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
+        # inst_2_rd = (inst_1 & 0b000000_00000_00000_11111_00000_000000) >> 11
+
+        return inst_1_rd == inst_2_rs or inst_1_rd == inst_2_rt
+
+    return False
 
 
 class Instruction(typing.TypedDict):
