@@ -4,21 +4,17 @@ import typing
 
 
 class Model:
-    def __init__(
-        self,
-        inst_memory: bytearray,
-        data_memory: bytearray,
-    ):
+    def __init__(self, inst_memory: bytearray, data_memory: bytearray, step_mode: bool):
         """Initialize a new model, with specified instruction memory (input file) and data memory size"""
 
-        self.view = View()
+        self.view = View(step_mode=step_mode)
         self.observer_function = self.view.rerender
 
         self.state = State(self.observer_function)
         self.state.inst_mem = inst_memory
         self.state.data_mem = data_memory
-        print(f"inst_memory:\t{len(self.state.inst_mem)} bytes")
-        print(f"data_memory:\t{len(self.state.data_mem)} bytes")
+        # print(f"inst_memory:\t{len(self.state.inst_mem)} bytes")
+        # print(f"data_memory:\t{len(self.state.data_mem)} bytes")
 
     def run_IF(self):
         """Run the Instruction Fetch stage"""
@@ -38,7 +34,8 @@ class Model:
         else:
             self.state.pc += 4
 
-        pass
+        # * Update pipeline PC
+        self.state.pl_regs.IF_ID.pc = self.state.pc
 
     def run_ID(self):
         """Run the Instruction Decode stage"""

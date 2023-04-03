@@ -147,6 +147,7 @@ class State:
     #         "reg_read": False,
     #     }
     # )
+    run = True
 
 
 class tty:
