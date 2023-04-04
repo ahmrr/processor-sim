@@ -7,32 +7,27 @@ from utils import *
 
 
 class Controller:
-    def __init__(self, input_file: str, data_mem_size: int, step_mode: bool):
+    def __init__(self, input_file: str, data_mem_size: int, step_mode=False):
         """Initialize a new controller"""
 
         # * Read in byte contents of input file
         with open(input_file, "rb") as file:
             data = file.read()
 
-        # * Create a new model with specified instruction and data memory
-        self.model = Model(
-            bytearray(data), bytearray(data_mem_size), step_mode=step_mode
-        )
+        # * Create a new model with specified instruction, data memory, and step mode
+        self.model = Model(bytearray(data), bytearray(data_mem_size), step_mode)
 
     def control_loop(self):
         """Manages the global control loop"""
 
-        print("----------------------------")
-
-        while self.mode.state.run:
+        # * Update model infinitely; view/model handle quitting
+        while True:
             self.update_model()
-
-        print("program execution finished")
-        print("----------------------------")
 
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
+        # * Run all pipeline stages
         self.model.run_IF()
         self.model.run_ID()
         self.model.run_EX()
@@ -77,8 +72,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(f"step: {args.step}")
-
-    # * Initialize a new controller, and loop it
+    # * Initialize a new controller, set the step mode, and loop it
     controller = Controller(args.input_file[0], args.memory[0], args.step)
     controller.control_loop()

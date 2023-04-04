@@ -1,6 +1,6 @@
 import sys
-from collections.abc import Callable
 import typing
+import curses
 
 if __name__ == "__main__":
     sys.exit(0)
@@ -58,12 +58,14 @@ class State:
             `cl: class` - the control lines (and ALU operation/funct) set for this stage
                 `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
                 `reg_write: bool` - whether to write to a register (1) or do nothing (0)
+
     `data_mem: bytes` - the data memory bytes buffer
     `inst_mem: bytes` - the instruction memory (input file) bytes buffer
-    """
 
-    def __init__(self, observer_function: Callable) -> None:
-        self.observer_function = observer_function
+    `run: Bool` - whether to continue running the program
+    `step_mode: Bool` - the mode in which to run the program; True = in steps, False = all at once
+    `observer_function: typing.Callable` - function to call whenever cycles is updated
+    """
 
     _cycles = 0
 
@@ -134,9 +136,7 @@ class State:
                 mem_to_reg = False
                 reg_write = False
 
-    # * Data memory (size TBD by user/default size is 1024B)
     data_mem: bytearray
-    # * Instruction memory (size TBD by user's input file)
     inst_mem: bytearray
     # * Control lines
     # control_lines = types.SimpleNamespace(
@@ -147,7 +147,10 @@ class State:
     #         "reg_read": False,
     #     }
     # )
+
     run = True
+    step_mode = False
+    observer_function: typing.Callable = None
 
 
 class tty:
@@ -273,6 +276,16 @@ def data_hazard(inst_1: int, inst_2: int) -> bool:
         return inst_1_rd == inst_2_rs or inst_1_rd == inst_2_rt
 
     return False
+
+
+def shutdown(screen):
+    """Resets terminal and shuts down a curses screen"""
+
+    curses.echo()
+    curses.nocbreak()
+    curses.curs_set(True)
+    screen.keypad(False)
+    curses.endwin()
 
 
 class Instruction(typing.TypedDict):

@@ -4,13 +4,12 @@ import typing
 
 
 class Model:
-    def __init__(self, inst_memory: bytearray, data_memory: bytearray, step_mode: bool):
+    def __init__(self, inst_memory: bytearray, data_memory: bytearray, step_mode=False):
         """Initialize a new model, with specified instruction memory (input file) and data memory size"""
 
-        self.view = View(step_mode=step_mode)
-        self.observer_function = self.view.rerender
-
-        self.state = State(self.observer_function)
+        self.state = State()
+        self.view = View(step_mode)
+        self.state.observer_function = self.view.rerender
         self.state.inst_mem = inst_memory
         self.state.data_mem = data_memory
         # print(f"inst_memory:\t{len(self.state.inst_mem)} bytes")
