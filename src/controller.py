@@ -7,7 +7,7 @@ from utils import *
 
 
 class Controller:
-    def __init__(self, input_file: str, data_mem_size: int, step_mode=False):
+    def __init__(self, input_file: str, data_mem_size: int, step_mode: bool = False):
         """Initialize a new controller"""
 
         # * Read in byte contents of input file
