@@ -29,6 +29,8 @@ class State:
             `inst: int` - the raw data instruction, not decoded
         `ID_EX: class` - the pipeline register between the ID and EX stages
             `pc: int` - the original PC + 4, forwarded to the EX stage (if needed for branch instruction)
+            `data_1` - the first value read from the register file
+            `data_2` - the second value read from the register file
             `reg_1: int` - the value stored in the first register operand specified in the instruction, if available
             `reg_2: int` - the value stored in the second register operand specified in the instruction, if available
             `imm: int` - the value stored in the immediate field in the instruction, if available
@@ -45,7 +47,8 @@ class State:
             `branch_addr: int` - the calculated branch target address, if the current instruction is branch
             `zero_flag: bool` - whether the ALU subtraction resulted in a 0 (if slt, bne, or be instruction)
             `alu_result: int` - the result of the ALU operation
-            `reg_2: int` - the second register value, in case the instruction is a sw instruction
+            `data: int` - the value read from the register file to store into memory (sw)
+            `reg: int` - the register to write to
             `cl: class` - the control lines (and ALU operation/funct) set for this stage
                 `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
                 `reg_write: bool` - whether to write to a register (1) or do nothing (0)
@@ -101,6 +104,8 @@ class State:
 
         class ID_EX:
             pc = 0
+            data_1 = 0
+            data_2 = 0
             reg_1 = 0
             reg_2 = 0
             imm = 0
@@ -119,7 +124,8 @@ class State:
             branch_addr = 0
             zero_flag = False
             alu_result = 0
-            reg_2 = 0
+            data = 0
+            reg = 0
 
             class cl:
                 mem_to_reg = False
