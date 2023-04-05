@@ -1,5 +1,6 @@
 import sys
 import argparse
+from copy import deepcopy
 
 
 from model import *
@@ -27,12 +28,14 @@ class Controller:
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
+        prev_state = deepcopy(self.model.state)
+
         # * Run all pipeline stages
-        self.model.run_IF()
-        self.model.run_ID()
-        self.model.run_EX()
-        self.model.run_MEM()
-        self.model.run_WB()
+        self.model.run_IF(prev_state)
+        self.model.run_ID(prev_state)
+        self.model.run_EX(prev_state)
+        self.model.run_MEM(prev_state)
+        self.model.run_WB(prev_state)
 
         # * Exit if no more instructions
         if self.model.state.pc >= len(self.model.state.inst_mem) - 4:
