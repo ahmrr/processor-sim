@@ -1,5 +1,6 @@
 import sys
 import argparse
+from copy import deepcopy
 
 
 from model import *
@@ -7,7 +8,7 @@ from utils import *
 
 
 class Controller:
-    def __init__(self, input_file: str, data_mem_size: int, step_mode=False):
+    def __init__(self, input_file: str, data_mem_size: int, step_mode: bool = False):
         """Initialize a new controller"""
 
         # * Read in byte contents of input file
@@ -27,12 +28,14 @@ class Controller:
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
+        prev_state = deepcopy(self.model.state)
+
         # * Run all pipeline stages
-        self.model.run_IF()
-        self.model.run_ID()
-        self.model.run_EX()
-        self.model.run_MEM()
-        self.model.run_WB()
+        self.model.run_IF(prev_state)
+        self.model.run_ID(prev_state)
+        self.model.run_EX(prev_state)
+        self.model.run_MEM(prev_state)
+        self.model.run_WB(prev_state)
 
         # * Exit if no more instructions
         if self.model.state.pc >= len(self.model.state.inst_mem) - 4:
