@@ -93,6 +93,7 @@ class State:
         alu_and_cnt = 0
         alu_or_cnt = 0
         alu_slt_cnt = 0
+        instruction_cnt = 0
 
     pc = 0
     regs = [0] * 32
@@ -292,6 +293,64 @@ def shutdown(screen):
     curses.curs_set(True)
     screen.keypad(False)
     curses.endwin()
+
+
+def control(inst: int) -> State.pl_regs.ID_EX.cl:
+    """Returns control line values for an instruction ins"""
+
+    cl = State.pl_regs.ID_EX.cl
+
+    op = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
+    if op == 0b000000:  # r-type
+        cl.reg_dst = True
+        cl.alu_op = 0b10
+        cl.alu_src = False
+        cl.branch = False
+
+        cl.mem_read = False
+        cl.mem_write = False
+        cl.reg_write = True
+        cl.mem_to_reg = False
+    elif op == 0b100011:  #  # lw         cl.reg_dst = False
+        cl.alu_op = 0b00
+        cl.alu_src = True
+        cl.branch = False
+        cl.mem_read = True
+        cl.mem_write = False
+        cl.reg_write = True
+        cl.mem_to_reg = True
+    elif op == 0b101011:  # sw
+        cl.reg_dst = False
+        cl.alu_op = 0b00
+        cl.alu_src = True
+        cl.branch = False
+        cl.mem_read = False
+        cl.mem_write = True
+        cl.reg_write = False
+        cl.mem_to_reg = False
+    elif op == 0b000100:  # beq
+        cl.reg_dst = False
+        cl.alu_op = 0b01
+        cl.alu_src = False
+        cl.branch = True
+        cl.mem_read = False
+        cl.mem_write = False
+        cl.reg_write = False
+        cl.mem_to_reg = False
+    elif op == 0b000010:  # j
+        pass
+
+    return cl
+
+
+def twos_decode(num: int, bits: int):
+    """Converts a signed two's-complement number of specified length to a signed decimal integer"""
+
+    return num - (1 << bits) if num & 1 << (bits - 1) else num
+
+
+def split_chunks(string: str, size: int):
+    return [string[i : i + size] for i in range(0, len(string), size)]
 
 
 class Instruction(typing.TypedDict):
