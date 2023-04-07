@@ -1,5 +1,6 @@
 import sys
 import argparse
+from copy import deepcopy
 
 
 from model import *
@@ -27,7 +28,7 @@ class Controller:
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
-        prev_pl_regs = self.model.state.pl_regs
+        prev_pl_regs = deepcopy(self.model.state.pl_regs)
 
         # * Run all pipeline stages
         # * First half of clock cycle (writes to registers)

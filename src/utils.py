@@ -31,9 +31,10 @@ class State:
             `pc: int` - the original PC + 4, forwarded to the EX stage (if needed for branch instruction)
             `data_1` - the first value read from the register file
             `data_2` - the second value read from the register file
-            `reg_1: int` - the value stored in the first register operand specified in the instruction, if available
-            `reg_2: int` - the value stored in the second register operand specified in the instruction, if available
+            `reg_1: int` - the first register operand specified in the instruction, if available
+            `reg_2: int` - the second register operand specified in the instruction, if available
             `imm: int` - the value stored in the immediate field in the instruction, if available
+            `jump_addr: int` - the value stored in the address field in the instruction, if available
             `cl: class` - the control lines (and ALU operation/funct) set for this stage
                 `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
                 `reg_write: bool` - whether to write to a register (1) or do nothing (0)
@@ -41,10 +42,12 @@ class State:
                 `mem_write: bool` - whether memory write access is needed for this instruction (1) or not (0)
                 `reg_dst: bool` - whether the register destination number comes from from the rd field (1) or rt field (0)
                 `branch: bool` - whether the current instruction is a branch instruction
+                `jump: bool` - whether the current instruction is a jump instruction
                 `alu_src: bool` - whether the second ALU operand comes from the sign-extended immediate in the instruction (1) or from the register file (0)
                 `alu_op: int` - the funct of the ALU operation to do (if applicable)
         `EX_MEM: class` - the pipeline register between the EX and MEM stages
             `branch_addr: int` - the calculated branch target address, if the current instruction is branch
+            `jump_addr: int` - the value stored in the address field in the instruction, if available
             `zero_flag: bool` - whether the ALU subtraction resulted in a 0 (if slt, bne, or be instruction)
             `alu_result: int` - the result of the ALU operation
             `data: int` - the value read from the register file to store into memory (sw)
@@ -55,9 +58,11 @@ class State:
                 `mem_read: bool` - whether memory read access is needed for this instruction (1) or not (0)
                 `mem_write: bool` - whether memory write access is needed for this instruction (1) or not (0)
                 `branch: bool` - whether the current instruction is a branch instruction
+                `jump: bool` - whether the current instruction is a jump instruction
         `MEM_WB: class` - the pipeline register between the MEM and WB stages
             `alu_result: int` - the result of the ALU operation
             `read_data: bool` - the data read from memory (if applicable), for lw instructions
+            `reg: int` - the register to write to
             `cl: class` - the control lines (and ALU operation/funct) set for this stage
                 `mem_to_reg: bool` - whether to source register write-back output from memory (1) or ALU result (0)
                 `reg_write: bool` - whether to write to a register (1) or do nothing (0)
@@ -69,6 +74,8 @@ class State:
     `step_mode: Bool` - the mode in which to run the program; True = in steps, False = all at once
     `observer_function: typing.Callable` - function to call whenever cycles is updated
     """
+
+    pl_stage_inst: list[int] = [0, 0, 0, 0, 0]
 
     _cycles = 0
 
@@ -110,6 +117,7 @@ class State:
             reg_1 = 0
             reg_2 = 0
             imm = 0
+            jump_addr = 0
 
             class cl:
                 mem_to_reg = False
@@ -118,11 +126,13 @@ class State:
                 mem_write = False
                 reg_dst = False
                 branch = False
+                jump = False
                 alu_src = False
                 alu_op = 0
 
         class EX_MEM:
             branch_addr = 0
+            jump_addr = 0
             zero_flag = False
             alu_result = 0
             data = 0
@@ -134,10 +144,12 @@ class State:
                 mem_read = False
                 mem_write = False
                 branch = False
+                jump = False
 
         class MEM_WB:
             alu_result = 0
             read_data = 0
+            reg = 0
 
             class cl:
                 mem_to_reg = False
@@ -172,6 +184,14 @@ class tty:
 
 def fetch_inst(pc: int, inst_mem: bytearray) -> int:
     return int.from_bytes(inst_mem[pc : pc + 4])
+
+
+def write_mem(start: int, data: int, data_mem: bytearray):
+    data_mem[start : start + 4] = data.to_bytes(4, signed=True)
+
+
+def read_mem(start: int, data_mem: bytearray):
+    return int.from_bytes(data_mem[start : start + 4], signed=True)
 
 
 def decode_inst(inst: int) -> str:
@@ -338,7 +358,7 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.reg_write = False
         cl.mem_to_reg = False
     elif op == 0b000010:  # j
-        pass
+        cl.jump = True
 
     return cl
 
@@ -353,11 +373,24 @@ def split_chunks(string: str, size: int):
     return [string[i : i + size] for i in range(0, len(string), size)]
 
 
+def clear_block(win: curses.window, start_y: int, start_x: int, end_y: int, end_x: int):
+    for y in range(start_y, end_y):
+        win.addstr(y, start_x, " " * (end_x - start_x))
+
+
+def clear_win(win: curses.window):
+    for y in range(1, win.getmaxyx()[0] - 2):
+        win.addstr(y, 2, " " * (win.getmaxyx()[1] - 3))
+
+
 class Instruction(typing.TypedDict):
     i_opcode: int
     i_type: typing.Literal["I", "R", "J"]
     i_func: typing.NotRequired[int]
     i_ops: int
+
+
+pl_registers: list[str] = ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]
 
 
 instructions: dict[str, Instruction] = {
