@@ -1,6 +1,5 @@
 import sys
 import argparse
-from copy import deepcopy
 
 
 from model import *
@@ -28,14 +27,18 @@ class Controller:
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
-        prev_state = deepcopy(self.model.state)
+        prev_pl_regs = self.model.state.pl_regs
 
         # * Run all pipeline stages
-        self.model.run_IF(prev_state)
-        self.model.run_ID(prev_state)
-        self.model.run_EX(prev_state)
-        self.model.run_MEM(prev_state)
-        self.model.run_WB(prev_state)
+        # * First half of clock cycle (writes to registers)
+        self.model.run_WB(prev_pl_regs)
+        # * Second half of clock cycle
+        self.model.run_IF(prev_pl_regs)
+        self.model.run_ID(prev_pl_regs)
+        self.model.run_EX(prev_pl_regs)
+        self.model.run_MEM(prev_pl_regs)
+
+        self.model.state.stats.instruction_cnt += 1
 
         # * Exit if no more instructions
         if self.model.state.pc >= len(self.model.state.inst_mem) - 4:
@@ -43,8 +46,14 @@ class Controller:
 
 
 if __name__ == "__main__":
+
+    class ArgumentParser(argparse.ArgumentParser):
+        def error(self, message):
+            self.print_help(sys.stderr)
+            self.exit(22, tty.ERR + "error:" + tty.END + f" {message}\n")
+
     # * Parse input args
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="Simulate a MIPS-ISA 5-stage pipelined processor"
     )
     parser.add_argument(
