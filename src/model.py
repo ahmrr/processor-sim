@@ -26,9 +26,10 @@ class Model:
         # * Update cycles
         self.state.cycles += 1
 
+        # --> NEED TO IMPLEMENT JUMP STUFF HERE!!!! <--
         # * If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
         if self.state.pl_regs.EX_MEM.cl.branch and self.state.pl_regs.EX_MEM.zero_flag:
-            self.state.pc += 4 + self.state.pl_regs.EX_MEM.branch_addr
+            self.state.pc = self.state.pl_regs.EX_MEM.branch_addr
         # * Otherwise, go to next instruction
         else:
             self.state.pc += 4
@@ -72,6 +73,11 @@ class Model:
             prev_pl_regs.IF_ID.inst & 0b000000_00000_00000_11111_11111_111111, 16
         )
 
+        # * Parse the jump address (FOR j-type)
+        self.state.pl_regs.ID_EX.jump_addr = (
+            (prev_pl_regs.IF_ID.inst & 0b000000_11111_11111_11111_11111_111111) << 2
+        ) + (prev_pl_regs.IF_ID.pc << 28)
+
     def run_EX(self, prev_pl_regs: State.pl_regs):
         """Run the ALU Execution stage"""
 
@@ -81,6 +87,7 @@ class Model:
         self.state.pl_regs.EX_MEM.cl.mem_read = prev_pl_regs.ID_EX.cl.mem_read
         self.state.pl_regs.EX_MEM.cl.mem_write = prev_pl_regs.ID_EX.cl.mem_write
         self.state.pl_regs.EX_MEM.cl.branch = prev_pl_regs.ID_EX.cl.branch
+        self.state.pl_regs.EX_MEM.cl.jump = prev_pl_regs.ID_EX.cl.jump
 
         # * The first ALU operand comes from the register file
         operand1 = prev_pl_regs.ID_EX.data_1
@@ -159,12 +166,42 @@ class Model:
         # * Passes on data_2 in the case of a store word instruction
         self.state.pl_regs.EX_MEM.data = prev_pl_regs.ID_EX.data_2
 
+        # * Passes on the jump address
+        self.state.pl_regs.EX_MEM.jump_addr = prev_pl_regs.EX_MEM.jump_addr
+
     def run_MEM(self, prev_pl_regs: State.pl_regs):
         """Run the Memory Access stage"""
 
-        pass
+        # * Passes control line values to the next pipeline stage
+        self.state.pl_regs.MEM_WB.cl.reg_write = prev_pl_regs.EX_MEM.cl.reg_write
+        self.state.pl_regs.MEM_WB.cl.mem_to_reg = prev_pl_regs.EX_MEM.cl.mem_to_reg
+        # * Passes the ALU result and register to write to to the next pipeline stage
+        self.state.pl_regs.MEM_WB.alu_result = prev_pl_regs.EX_MEM.alu_result
+        self.state.pl_regs.MEM_WB.reg = prev_pl_regs.EX_MEM.reg
+
+        # * Reads from memory
+        if prev_pl_regs.EX_MEM.cl.mem_read:
+            self.state.pl_regs.MEM_WB.read_data = read_mem(
+                prev_pl_regs.EX_MEM.alu_result, self.state.data_mem
+            )
+        # * Writes to memory
+        if prev_pl_regs.EX_MEM.cl.mem_write:
+            write_mem(
+                prev_pl_regs.EX_MEM.alu_result,
+                prev_pl_regs.EX_MEM.data,
+                self.state.data_mem,
+            )
 
     def run_WB(self, prev_pl_regs: State.pl_regs):
         """Run the Write Back stage"""
+
+        write_value = (
+            prev_pl_regs.MEM_WB.read_data
+            if prev_pl_regs.MEM_WB.cl.mem_to_reg
+            else prev_pl_regs.MEM_WB.alu_result
+        )
+
+        if prev_pl_regs.MEM_WB.cl.reg_write:
+            self.state.regs[prev_pl_regs.MEM_WB.reg] = write_value
 
         pass
