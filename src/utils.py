@@ -379,7 +379,7 @@ def clear_block(win: curses.window, start_y: int, start_x: int, end_y: int, end_
 
 
 def clear_win(win: curses.window):
-    for y in range(1, win.getmaxyx()[0] - 2):
+    for y in range(1, win.getmaxyx()[0] - 1):
         win.addstr(y, 2, " " * (win.getmaxyx()[1] - 3))
 
 

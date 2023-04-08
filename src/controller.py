@@ -16,7 +16,11 @@ class Controller:
             data = file.read()
 
         # * Create a new model with specified instruction, data memory, and step mode
-        self.model = Model(bytearray(data), bytearray(data_mem_size), step_mode)
+        data_mem = bytearray(data_mem_size)
+        data_mem[0x3F0 : 0x3F0 + 16] = bytearray.fromhex(
+            "FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF"
+        )
+        self.model = Model(bytearray(data), data_mem, step_mode)
 
     def control_loop(self):
         """Manages the global control loop"""
@@ -78,7 +82,7 @@ if __name__ == "__main__":
         "--memory",
         "--mem",
         nargs=1,
-        default=1024,
+        default=[1024],
         metavar="size",
         type=int,
         help="specify custom size of data memory; default is 1024",

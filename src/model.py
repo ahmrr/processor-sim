@@ -107,7 +107,7 @@ class Model:
             alu_control = 0b0110
         elif prev_pl_regs.ID_EX.cl.alu_op == 0b10:
             # * Need to look at the funct field
-            funct = prev_pl_regs.ID_EX.imm & 0b111111
+            funct = prev_pl_regs.ID_EX.imm & 0b000000_00000_00000_00000_00000_111111
             if funct == 0b100000:
                 # * add instruction
                 alu_control = 0b0010
