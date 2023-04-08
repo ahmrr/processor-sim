@@ -3,6 +3,7 @@ import typing
 import curses
 
 if __name__ == "__main__":
+    print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
     sys.exit(0)
 
 
@@ -157,7 +158,7 @@ class State:
 
     data_mem: bytearray
     inst_mem: bytearray
-    # * Control lines
+    # Control lines
     # control_lines = types.SimpleNamespace(
     #     {
     #         "reg_write": False,
@@ -233,7 +234,7 @@ def decode_inst(inst: int) -> str:
 def data_hazard(inst_1: int, inst_2: int) -> bool:
     """Checks if two instructions have a RAW data hazard"""
 
-    # * Get information of each instruction based on opcode/func field(s)
+    # Get information of each instruction based on opcode/func field(s)
     for key, val in instructions.items():
         if (
             val["i_type"] == "R"
@@ -252,10 +253,10 @@ def data_hazard(inst_1: int, inst_2: int) -> bool:
             inst_2_name = key
             inst_2_info = val
 
-    # * No data hazards with J-type instructions
+    # No data hazards with J-type instructions
     if inst_1_info["i_type"] == "J" or inst_2_info["i_type"] == "J":
         return False
-    # * If one instruction is R-type and the other is I-type
+    # If one instruction is R-type and the other is I-type
     elif inst_1_info["i_type"] == "R" and inst_2_info["i_type"] == "I":
         # inst_1_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
         # inst_1_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
@@ -264,16 +265,16 @@ def data_hazard(inst_1: int, inst_2: int) -> bool:
         inst_2_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
         inst_2_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
 
-        # * Load or store op
+        # Load or store op
         if inst_1_info["i_ops"] == 2:
             return inst_1_rd == inst_2_rs
-        # * Other I-type op
+        # Other I-type op
         else:
             return inst_1_rd == inst_2_rs or inst_1_rd == inst_2_rt
-    # * If one instruction is I-type and the other is R-type
+    # If one instruction is I-type and the other is R-type
     elif inst_1_info["i_type"] == "I" and inst_2_info["i_type"] == "R":
         return False
-    # * If both instructions are I-type
+    # If both instructions are I-type
     elif inst_1_info["i_type"] == "I" and inst_2_info["i_type"] == "I":
         # inst_1_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
         inst_1_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
@@ -281,16 +282,16 @@ def data_hazard(inst_1: int, inst_2: int) -> bool:
         inst_2_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
         inst_2_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
 
-        # * First instruction is load, second is load/store op
+        # First instruction is load, second is load/store op
         if inst_1_name == "lw" and inst_2_info["i_ops"] == 2:
             return inst_1_rt == inst_2_rs
-        # * First instruction is load, second is some other I-type op
+        # First instruction is load, second is some other I-type op
         elif inst_1_name == "lw" and inst_2_info["i_ops"] == 3:
             return inst_1_rt == inst_2_rs or inst_1_rt == inst_2_rt
-        # * First instruction is some other I-type op
+        # First instruction is some other I-type op
         else:
             return False
-    # * If both instructions are R-type
+    # If both instructions are R-type
     elif inst_1_info["i_type"] == "R" and inst_2_info["i_type"] == "R":
         # inst_1_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
         # inst_1_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
@@ -379,7 +380,7 @@ def clear_block(win: curses.window, start_y: int, start_x: int, end_y: int, end_
 
 
 def clear_win(win: curses.window):
-    for y in range(1, win.getmaxyx()[0] - 2):
+    for y in range(1, win.getmaxyx()[0] - 1):
         win.addstr(y, 2, " " * (win.getmaxyx()[1] - 3))
 
 

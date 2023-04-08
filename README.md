@@ -1,12 +1,10 @@
-# MIPS Processor Simulator
+# MIPS Processor Simulator by Ahmer Raza and Matthew Everette
 
-CPSC 3300 Project 3: Ahmer Raza, Matthew Everette
-
-Simulates a MIPS 5-stage pipelined processor.
+CPSC 3300, Project 3 submission. Simulates a MIPS 5-stage pipelined processor.
 
 ## Running
 
-Run the `controller.py` file in the `src` directory (with Python v3.11 or greater):
+Run the `controller.py` file in the `src` directory (with Python v3.11 or greater), specifying a valid MIPS binary as the input:
 
 ```console
 user@computer:~$ python3.11 src/controller.py
@@ -27,7 +25,9 @@ user@computer:~$ python3.11 src/controller.py --step --memory 4096 sample.dat
 user@computer:~$
 ```
 
-If stepping mode is enabled, use the `S` key to step through each instruction, the `Q` key to quit, left and right arrows to cycle through pipeline registers, and up and down arrows to browse data memory.
+## Controls
+
+If stepping mode is enabled, use the `S` key to step through each instruction and the `Q` key to quit. Use the left and right arrow keys to cycle through pipeline registers, and up and down arrow keys to browse data memory.
 
 ## Notes
 
@@ -44,4 +44,4 @@ user@computer:~$ python3.11 src/controller.py --step --memory 4096 sample.dat
 user@computer:~$
 ```
 
-Python 3.11 was used simply because of its extensive typing features. The Python curses library was used to provide the terminal GUI.
+Python 3.11 was used simply because of its extensive typing features. The Python curses library was used to provide the terminal GUI. The MVC architectural pattern was used to organize the program, and the Observer design pattern was used to rerender the View whenever the Model is updated.
