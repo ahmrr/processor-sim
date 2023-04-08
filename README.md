@@ -1,8 +1,6 @@
-# MIPS Processor Simulator
+# MIPS Processor Simulator by Ahmer Raza and Matthew Everette
 
-CPSC 3300 Project 3: Ahmer Raza, Matthew Everette
-
-Simulates a MIPS 5-stage pipelined processor.
+CPSC 3300, Project 3 submission. Simulates a MIPS 5-stage pipelined processor.
 
 ## Running
 

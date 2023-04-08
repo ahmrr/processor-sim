@@ -1,6 +1,16 @@
 import sys
 import argparse
-from copy import deepcopy
+
+from importlib.util import find_spec
+from platform import system
+
+if find_spec("_curses") is None:
+    print(
+        "\033[91;1merror:\033[0m curses module not found; curses is needed to run this program."
+    )
+    if system() == "Windows":
+        print('For \033[1mWindows\033[0m, run "python -m pip install windows-curses"')
+    sys.exit(1)
 
 
 from model import *
@@ -11,33 +21,30 @@ class Controller:
     def __init__(self, input_file: str, data_mem_size: int, step_mode: bool = False):
         """Initialize a new controller"""
 
-        # * Read in byte contents of input file
+        # Read in byte contents of input file
         with open(input_file, "rb") as file:
             data = file.read()
 
-        # * Create a new model with specified instruction, data memory, and step mode
+        # Create a new model with specified instruction, data memory, and step mode
         data_mem = bytearray(data_mem_size)
-        data_mem[0x3F0 : 0x3F0 + 16] = bytearray.fromhex(
-            "FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF"
-        )
         self.model = Model(bytearray(data), data_mem, step_mode)
 
     def control_loop(self):
         """Manages the global control loop"""
 
-        # * Update model infinitely; view/model handle quitting
+        # Update model infinitely; view/model handle quitting
         while True:
             self.update_model()
 
     def update_model(self):
         """Updates the model every clock cycle based on some logic"""
 
-        prev_pl_regs = deepcopy(self.model.state.pl_regs)
+        prev_pl_regs = self.model.state.pl_regs.__new__(self.model.state.pl_regs)
 
-        # * Run all pipeline stages
-        # * First half of clock cycle (writes to registers)
+        # Run all pipeline stages
+        # First half of clock cycle (writes to registers)
         self.model.run_WB(prev_pl_regs)
-        # * Second half of clock cycle
+        # Second half of clock cycle
         self.model.run_IF(prev_pl_regs)
         self.model.run_ID(prev_pl_regs)
         self.model.run_EX(prev_pl_regs)
@@ -45,7 +52,7 @@ class Controller:
 
         self.model.state.stats.instruction_cnt += 1
 
-        # * Exit if no more instructions
+        # Exit if no more instructions
         if self.model.state.pc >= len(self.model.state.inst_mem) - 4:
             self.model.state.run = False
 
@@ -57,7 +64,7 @@ if __name__ == "__main__":
             self.print_help(sys.stderr)
             self.exit(22, tty.ERR + "error:" + tty.END + f" {message}\n")
 
-    # * Parse input args
+    # Parse input args
     parser = ArgumentParser(
         description="Simulate a MIPS-ISA 5-stage pipelined processor"
     )
@@ -89,6 +96,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # * Initialize a new controller, set the step mode, and loop it
+    # Initialize a new controller, set the step mode, and loop it
     controller = Controller(args.input_file[0], args.memory[0], args.step)
     controller.control_loop()
