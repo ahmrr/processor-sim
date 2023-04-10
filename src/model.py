@@ -30,13 +30,16 @@ class Model:
         # Update cycles
         self.state.cycles += 1
 
-        # --> NEED TO IMPLEMENT JUMP STUFF HERE!!!! <--
         # If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
-        if self.state.pl_regs.EX_MEM.cl.branch and self.state.pl_regs.EX_MEM.zero_flag:
+        if prev_pl_regs.EX_MEM.cl.branch and prev_pl_regs.EX_MEM.zero_flag:
             self.state.pc = self.state.pl_regs.EX_MEM.branch_addr
         # Otherwise, go to next instruction
         else:
             self.state.pc += 4
+
+        # If we want to jump, set pc to the jump address
+        if prev_pl_regs.EX_MEM.cl.jump:
+            self.state.pc = prev_pl_regs.EX_MEM.jump_addr
 
         # Update pipeline PC
         self.state.pl_regs.IF_ID.pc = self.state.pc
