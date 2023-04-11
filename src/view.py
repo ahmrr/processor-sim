@@ -320,6 +320,28 @@ class View:
                         self.pl_stage = (self.pl_stage - 1) % 4
                         self._disp_pl_info_win(state, pl_registers[self.pl_stage])
                         self.pl_info_win.refresh()
+                    case "KEY_UP":
+                        if (
+                            self.data_mem_start
+                            - 16 * (self.data_mem_win.getmaxyx()[0] - 6)
+                            >= 0
+                        ):
+                            self.data_mem_start -= 16 * (
+                                self.data_mem_win.getmaxyx()[0] - 6
+                            )
+                        self._disp_data_mem_win(state, self.data_mem_start)
+                        self.data_mem_win.refresh()
+                        self._disp_data_mem_win(state, self.data_mem_start)
+                        self.data_mem_win.refresh()
+                    case "KEY_DOWN":
+                        if self.data_mem_start + 16 * (
+                            self.data_mem_win.getmaxyx()[0] - 6
+                        ) < len(state.data_mem):
+                            self.data_mem_start += 16 * (
+                                self.data_mem_win.getmaxyx()[0] - 6
+                            )
+                        self._disp_data_mem_win(state, self.data_mem_start)
+                        self.data_mem_win.refresh()
 
         # Shutdown curses and exit
         shutdown(self.screen)
@@ -328,12 +350,17 @@ class View:
     def _rerender_jump(self, state: State):
         """Rerender the view without prompting for user step input"""
 
-        # Clear screen and print state values
-        self.screen.clear()
-        self.screen.addstr(0, 0, f"binary inst:\t{state.pl_regs.IF_ID.inst:#032b}")
-        self.screen.addstr(1, 0, f"MIPS inst:\t{decode_inst(state.pl_regs.IF_ID.inst)}")
-        self.screen.addstr(2, 0, f"cycles:\t\t{state.cycles}")
-        self.screen.addstr(3, 0, f"pc:\t\t{state.pc}")
+        self._disp_reg_win(state)
+        self.reg_win.refresh()
+
+        self._disp_stat_win(state)
+        self.stat_win.refresh()
+
+        self._disp_data_mem_win(state, self.data_mem_start)
+        self.data_mem_win.refresh()
+
+        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+        self.pl_info_win.refresh()
 
         # Do nothing if there are more instructions left
         if state.run:
@@ -341,9 +368,48 @@ class View:
         # If no more instructions left
         else:
             # Discard input until user enters quit command
-            self.screen.addstr(8, 0, "FINISH / (q)uit")
-            while self.screen.getkey() != "q":
-                pass
+            self.data_mem_win.addstr(
+                self.data_mem_win.getmaxyx()[0] - 1,
+                2,
+                f"{' Done'}",
+                curses.A_BOLD,
+            )
+            self.data_mem_win.addstr(f"{'; q: quit ':─<21}", curses.A_ITALIC)
+            self.data_mem_win.refresh()
+            while True:
+                match self.screen.getkey():
+                    case "q":
+                        break
+                    case "KEY_RIGHT":
+                        self.pl_stage = (self.pl_stage + 1) % 4
+                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self.pl_info_win.refresh()
+                    case "KEY_LEFT":
+                        self.pl_stage = (self.pl_stage - 1) % 4
+                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self.pl_info_win.refresh()
+                    case "KEY_UP":
+                        if (
+                            self.data_mem_start
+                            - 16 * (self.data_mem_win.getmaxyx()[0] - 6)
+                            >= 0
+                        ):
+                            self.data_mem_start -= 16 * (
+                                self.data_mem_win.getmaxyx()[0] - 6
+                            )
+                        self._disp_data_mem_win(state, self.data_mem_start)
+                        self.data_mem_win.refresh()
+                        self._disp_data_mem_win(state, self.data_mem_start)
+                        self.data_mem_win.refresh()
+                    case "KEY_DOWN":
+                        if self.data_mem_start + 16 * (
+                            self.data_mem_win.getmaxyx()[0] - 6
+                        ) < len(state.data_mem):
+                            self.data_mem_start += 16 * (
+                                self.data_mem_win.getmaxyx()[0] - 6
+                            )
+                        self._disp_data_mem_win(state, self.data_mem_start)
+                        self.data_mem_win.refresh()
 
         # Shutdown curses and exit
         shutdown(self.screen)
