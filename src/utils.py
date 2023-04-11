@@ -129,7 +129,7 @@ class State:
                 branch = False
                 jump = False
                 alu_src = False
-                alu_op = 0
+                alu_op = 0b10
 
         class EX_MEM:
             branch_addr = 0
@@ -321,6 +321,19 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
 
     cl = State.pl_regs.ID_EX.cl
 
+    # nop/bubble
+    if inst == 0x00000000:
+        cl.reg_dst = False
+        cl.alu_op = 0b10
+        cl.alu_src = False
+        cl.branch = False
+
+        cl.mem_read = False
+        cl.mem_write = False
+        cl.reg_write = False
+        cl.mem_to_reg = False
+        return cl
+
     op = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
     if op == 0b000000:  # r-type
         cl.reg_dst = True
@@ -332,7 +345,8 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.mem_write = False
         cl.reg_write = True
         cl.mem_to_reg = False
-    elif op == 0b100011:  #  # lw         cl.reg_dst = False
+    elif op == 0b100011:  # lw
+        cl.reg_dst = False
         cl.alu_op = 0b00
         cl.alu_src = True
         cl.branch = False

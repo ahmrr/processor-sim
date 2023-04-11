@@ -32,7 +32,7 @@ class Model:
 
         # If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
         if prev_pl_regs.EX_MEM.cl.branch and prev_pl_regs.EX_MEM.zero_flag:
-            self.state.pc = self.state.pl_regs.EX_MEM.branch_addr
+            self.state.pc = prev_pl_regs.EX_MEM.branch_addr
         # Otherwise, go to next instruction
         else:
             self.state.pc += 4
@@ -130,6 +130,9 @@ class Model:
             elif funct == 0b101010:
                 # slt instruction
                 alu_control = 0b0111
+            else:
+                # nop instruction
+                alu_control = None
 
         # Simulates ALU calculation
         if alu_control == 0b0000:
@@ -148,12 +151,10 @@ class Model:
             # subtract
             self.state.pl_regs.EX_MEM.alu_result = (operand1 - operand2) & 0xFFFFFFFF
             self.state.stats.alu_sub_cnt += 1
-            pass
         elif alu_control == 0b0111:
             # slt
             self.state.pl_regs.EX_MEM.alu_result = operand1 < operand2
             self.state.stats.alu_slt_cnt += 1
-            pass
 
         # Determines the value of the zero flag
         self.state.pl_regs.EX_MEM.zero_flag = self.state.pl_regs.EX_MEM.alu_result == 0
@@ -211,4 +212,26 @@ class Model:
         if prev_pl_regs.MEM_WB.cl.reg_write:
             self.state.regs[prev_pl_regs.MEM_WB.reg] = write_value
 
-        pass
+    def is_data_hazard(self, prev_pl_regs: State.pl_regs) -> int:
+        """Checks for data hazards, returns the number of bubbles needed to
+        resolve the hazard"""
+
+        IF_ID_rs = self.state.regs[  # this is the value stored in rs
+            (prev_pl_regs.IF_ID.inst & 0b000000_11111_00000_00000_00000_000000) >> 21
+        ]
+
+        IF_ID_rt = self.state.regs[  # this is the value stored in rt
+            (prev_pl_regs.IF_ID.inst & 0b000000_00000_11111_00000_00000_000000) >> 16
+        ]
+
+        EX_MEM_rd = prev_pl_regs.EX_MEM.reg
+        MEM_WB_rd = prev_pl_regs.MEM_WB.reg
+
+        if EX_MEM_rd == IF_ID_rs:
+            return 1
+        elif EX_MEM_rd == IF_ID_rt:
+            pass
+        elif MEM_WB_rd == IF_ID_rs:
+            pass
+        elif MEM_WB_rd == IF_ID_rt:
+            pass

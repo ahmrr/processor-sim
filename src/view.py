@@ -3,6 +3,9 @@ from utils import *
 import sys
 import curses
 
+# For macos
+# curses.A_ITALIC = curses.A_BOLD
+
 if __name__ == "__main__":
     print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
     sys.exit(0)
