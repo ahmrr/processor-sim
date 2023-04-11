@@ -22,11 +22,13 @@ class Model:
     def run_IF(self, prev_pl_regs: State.pl_regs):
         """Run the Instruction Fetch stage"""
 
+        # Update cycles
+        self.state.cycles += 1
+
         # If we are bubbling, run a nop
         if self.state.bubbles:
             self.state.pl_regs.IF_ID.pc = self.state.pc
             self.state.pl_regs.IF_ID.inst = 0x00000000
-            self.state.cycles += 1
             self.state.bubbles -= 1
 
         else:
@@ -34,9 +36,6 @@ class Model:
             self.state.pl_regs.IF_ID.inst = fetch_inst(
                 self.state.pc, self.state.inst_mem
             )
-
-            # Update cycles
-            self.state.cycles += 1
 
             # If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
             if prev_pl_regs.EX_MEM.cl.branch and prev_pl_regs.EX_MEM.zero_flag:
@@ -55,14 +54,14 @@ class Model:
     def run_ID(self, prev_pl_regs: State.pl_regs):
         """Run the Instruction Decode stage"""
 
-        # # Checks for data hazard
-        # self.state.bubbles = max(self.is_data_hazard(prev_pl_regs), self.state.bubbles)
-        # # If there is a data hazard, insert a nop and move pc back to the correct address
-        # if self.state.bubbles:
-        #     prev_pl_regs.IF_ID.inst = 0x00000000
-        #     prev_pl_regs.IF_ID.pc -= 4
-        #     self.state.pc = prev_pl_regs.IF_ID.pc
-        #     self.state.bubbles -= 1
+        # Checks for data hazard
+        self.state.bubbles = max(self.is_data_hazard(prev_pl_regs), self.state.bubbles)
+        # If there is a data hazard, insert a nop and move pc back to the correct address
+        if self.state.bubbles and prev_pl_regs.IF_ID.inst != 0x00000000:
+            prev_pl_regs.IF_ID.inst = 0x00000000
+            prev_pl_regs.IF_ID.pc -= 4
+            self.state.pc = prev_pl_regs.IF_ID.pc
+            self.state.bubbles -= 1
 
         # Pass PC ahead to next pipeline register
         self.state.pl_regs.ID_EX.pc = prev_pl_regs.IF_ID.pc
@@ -233,10 +232,6 @@ class Model:
         """Checks for data hazards, returns the number of bubbles needed to
         resolve the hazard"""
 
-        # If the current instruction is a nop, return 0
-        if prev_pl_regs.IF_ID.inst == 0x00000000:
-            return 0
-
         IF_ID_rs = self.state.regs[  # this is the value stored in rs
             (prev_pl_regs.IF_ID.inst & 0b000000_11111_00000_00000_00000_000000) >> 21
         ]
@@ -247,6 +242,7 @@ class Model:
 
         EX_MEM_rd = prev_pl_regs.EX_MEM.reg
         MEM_WB_rd = prev_pl_regs.MEM_WB.reg
+        ID_EX_rt = prev_pl_regs.ID_EX.reg_2
 
         if EX_MEM_rd == IF_ID_rs and prev_pl_regs.EX_MEM.cl.reg_write:
             return 2
@@ -256,3 +252,9 @@ class Model:
             return 1
         elif MEM_WB_rd == IF_ID_rt and prev_pl_regs.MEM_WB.cl.reg_write:
             return 1
+        elif ID_EX_rt == IF_ID_rs and prev_pl_regs.ID_EX.cl.mem_read:
+            return 3
+        elif ID_EX_rt == IF_ID_rt and prev_pl_regs.ID_EX.cl.mem_read:
+            return 3
+        else:
+            return 0
