@@ -248,11 +248,11 @@ class Model:
         EX_MEM_rd = prev_pl_regs.EX_MEM.reg
         MEM_WB_rd = prev_pl_regs.MEM_WB.reg
 
-        if EX_MEM_rd == IF_ID_rs:
+        if EX_MEM_rd == IF_ID_rs and prev_pl_regs.EX_MEM.cl.reg_write:
             return 2
-        elif EX_MEM_rd == IF_ID_rt:
+        elif EX_MEM_rd == IF_ID_rt and prev_pl_regs.EX_MEM.cl.reg_write:
             return 2
-        elif MEM_WB_rd == IF_ID_rs:
+        elif MEM_WB_rd == IF_ID_rs and prev_pl_regs.MEM_WB.cl.reg_write:
             return 1
-        elif MEM_WB_rd == IF_ID_rt:
+        elif MEM_WB_rd == IF_ID_rt and prev_pl_regs.MEM_WB.cl.reg_write:
             return 1
