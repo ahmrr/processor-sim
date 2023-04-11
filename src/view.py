@@ -88,6 +88,8 @@ class View:
         self.stat_win.addstr(str(state.stats.mem_writes))
         self.stat_win.addstr("\tALU slts   ", curses.A_ITALIC)
         self.stat_win.addstr(f"{state.stats.alu_slt_cnt}")
+        self.stat_win.addstr(10, 2, f"Bubbles left\t", curses.A_ITALIC)
+        self.stat_win.addstr(f"{state.bubbles}")
 
     def _disp_pl_info_win(self, state: State, pl_reg: str):
         clear_win(self.pl_info_win)
@@ -422,7 +424,7 @@ class View:
         lines, cols = self.screen.getmaxyx()
 
         reg_win_dim = (14, cols // 2)
-        stat_win_dim = (11, cols // 2)
+        stat_win_dim = (12, cols // 2)
         data_win_dim = (lines - reg_win_dim[0], cols // 2)
         pl_info_win_dim = (lines - stat_win_dim[0], cols // 2)
 
