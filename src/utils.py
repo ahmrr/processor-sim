@@ -24,6 +24,8 @@ class State:
     `pc: int` - the current program counter
     `regs: list[int]` - the values of each of the 32 registers
 
+    `bubbles: int` - the number of bubbles to run
+
     `pl_regs: class` - stores information of each of the pipeline registers
         `IF_ID: class` - the pipeline register between the IF and ID stages
             `pc: int` - the original PC + 4, forwarded to the EX stage (if needed for branch instruction)
@@ -106,6 +108,8 @@ class State:
     pc = 0
     regs = [0] * 32
 
+    bubbles = 0
+
     class pl_regs:
         class IF_ID:
             pc = 0
@@ -184,7 +188,12 @@ class tty:
 
 
 def fetch_inst(pc: int, inst_mem: bytearray) -> int:
-    return int.from_bytes(inst_mem[pc : pc + 4])
+    # If we are still inside inst_mem, return the instruction
+    if pc < len(inst_mem):
+        return int.from_bytes(inst_mem[pc : pc + 4])
+    # Else return a nop
+    else:
+        return 0x00000000
 
 
 def write_mem(start: int, data: int, data_mem: bytearray):
@@ -200,6 +209,9 @@ def decode_inst(inst: int) -> str:
 
     inst_opcode = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
     inst_func = inst & 0b000000_00000_00000_00000_00000_111111
+
+    # For nop
+    decoded_inst = "nop"
 
     for key, val in instructions.items():
         if val["i_type"] == "R" and val["i_func"] == inst_func:

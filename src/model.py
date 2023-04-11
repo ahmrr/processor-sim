@@ -22,30 +22,47 @@ class Model:
     def run_IF(self, prev_pl_regs: State.pl_regs):
         """Run the Instruction Fetch stage"""
 
-        # Pass PC to pipeline register
-        self.state.pl_regs.IF_ID.pc = self.state.pc
-        # Fetch instruction
-        self.state.pl_regs.IF_ID.inst = fetch_inst(self.state.pc, self.state.inst_mem)
+        # If we are bubbling, run a nop
+        if self.state.bubbles:
+            self.state.pl_regs.IF_ID.pc = self.state.pc
+            self.state.pl_regs.IF_ID.inst = 0x00000000
+            self.state.cycles += 1
+            self.state.bubbles -= 1
 
-        # Update cycles
-        self.state.cycles += 1
-
-        # If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
-        if prev_pl_regs.EX_MEM.cl.branch and prev_pl_regs.EX_MEM.zero_flag:
-            self.state.pc = prev_pl_regs.EX_MEM.branch_addr
-        # Otherwise, go to next instruction
         else:
-            self.state.pc += 4
+            # Fetch instruction
+            self.state.pl_regs.IF_ID.inst = fetch_inst(
+                self.state.pc, self.state.inst_mem
+            )
 
-        # If we want to jump, set pc to the jump address
-        if prev_pl_regs.EX_MEM.cl.jump:
-            self.state.pc = prev_pl_regs.EX_MEM.jump_addr
+            # Update cycles
+            self.state.cycles += 1
 
-        # Update pipeline PC
-        self.state.pl_regs.IF_ID.pc = self.state.pc
+            # If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
+            if prev_pl_regs.EX_MEM.cl.branch and prev_pl_regs.EX_MEM.zero_flag:
+                self.state.pc = prev_pl_regs.EX_MEM.branch_addr
+            # Otherwise, go to next instruction
+            else:
+                self.state.pc += 4
+
+            # If we want to jump, set pc to the jump address
+            if prev_pl_regs.EX_MEM.cl.jump:
+                self.state.pc = prev_pl_regs.EX_MEM.jump_addr
+
+            # Update pipeline PC
+            self.state.pl_regs.IF_ID.pc = self.state.pc
 
     def run_ID(self, prev_pl_regs: State.pl_regs):
         """Run the Instruction Decode stage"""
+
+        # # Checks for data hazard
+        # self.state.bubbles = max(self.is_data_hazard(prev_pl_regs), self.state.bubbles)
+        # # If there is a data hazard, insert a nop and move pc back to the correct address
+        # if self.state.bubbles:
+        #     prev_pl_regs.IF_ID.inst = 0x00000000
+        #     prev_pl_regs.IF_ID.pc -= 4
+        #     self.state.pc = prev_pl_regs.IF_ID.pc
+        #     self.state.bubbles -= 1
 
         # Pass PC ahead to next pipeline register
         self.state.pl_regs.ID_EX.pc = prev_pl_regs.IF_ID.pc
@@ -216,6 +233,10 @@ class Model:
         """Checks for data hazards, returns the number of bubbles needed to
         resolve the hazard"""
 
+        # If the current instruction is a nop, return 0
+        if prev_pl_regs.IF_ID.inst == 0x00000000:
+            return 0
+
         IF_ID_rs = self.state.regs[  # this is the value stored in rs
             (prev_pl_regs.IF_ID.inst & 0b000000_11111_00000_00000_00000_000000) >> 21
         ]
@@ -228,10 +249,10 @@ class Model:
         MEM_WB_rd = prev_pl_regs.MEM_WB.reg
 
         if EX_MEM_rd == IF_ID_rs:
-            return 1
+            return 2
         elif EX_MEM_rd == IF_ID_rt:
-            pass
+            return 2
         elif MEM_WB_rd == IF_ID_rs:
-            pass
+            return 1
         elif MEM_WB_rd == IF_ID_rt:
-            pass
+            return 1
