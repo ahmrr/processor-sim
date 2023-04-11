@@ -27,6 +27,7 @@ class Controller:
 
         # Create a new model with specified instruction, data memory, and step mode
         data_mem = bytearray(data_mem_size)
+        data_mem[0:8] = bytearray.fromhex("00 00 00 01 00 00 00 0A")
         self.model = Model(bytearray(data), data_mem, step_mode)
 
     def control_loop(self):
@@ -41,14 +42,14 @@ class Controller:
 
         prev_pl_regs = self.model.state.pl_regs.__new__(self.model.state.pl_regs)
 
-        # Run all pipeline stages
-        # First half of clock cycle (writes to registers)
-        self.model.run_WB(prev_pl_regs)
         # Second half of clock cycle
         self.model.run_IF(prev_pl_regs)
         self.model.run_ID(prev_pl_regs)
         self.model.run_EX(prev_pl_regs)
         self.model.run_MEM(prev_pl_regs)
+        # Run all pipeline stages
+        # First half of clock cycle (writes to registers)
+        self.model.run_WB(prev_pl_regs)
 
         self.model.state.stats.instruction_cnt += 1
 
