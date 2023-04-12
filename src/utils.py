@@ -88,8 +88,8 @@ class State:
 
     @cycles.setter
     def cycles(self, value):
-        self.observer_function(self)
         self._cycles = value
+        self.observer_function(self)
 
     @cycles.deleter
     def cycles(self):

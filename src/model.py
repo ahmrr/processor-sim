@@ -42,6 +42,9 @@ class Model:
                 self.state.pc, self.state.inst_mem
             )
 
+            # Update instruction count
+            self.state.stats.instruction_cnt += 1
+
             # Go to next instruction
             self.state.pc += 4
 
@@ -58,10 +61,15 @@ class Model:
         self.state.bubbles = max(self.is_data_hazard(prev_pl_regs), self.state.bubbles)
         # If there is a data hazard, insert a nop and move pc back to the correct address
         if self.state.bubbles and prev_pl_regs.IF_ID.inst != 0x00000000:
+            # Insert a nop for the current instruction
             prev_pl_regs.IF_ID.inst = 0x00000000
+            # Move pc back to the current instruction
             prev_pl_regs.IF_ID.pc -= 4
             self.state.pc = prev_pl_regs.IF_ID.pc
+            # Decrement the number of bubbles left
             self.state.bubbles -= 1
+            # Remove the current instruction from the instruction count
+            self.state.stats.instruction_cnt -= 1
 
         # Checks for control hazard
         self.state.bubbles = max(
@@ -82,7 +90,7 @@ class Model:
             prev_pl_regs.IF_ID.inst & 0b000000_00000_11111_00000_00000_000000
         ) >> 16
 
-        # Read from registers, and pass the values (FOR ALU)
+        # Read from the registers, and pass on the values
         self.state.pl_regs.ID_EX.data_1 = (
             self.state.regs[  # this is the value stored in rs
                 (prev_pl_regs.IF_ID.inst & 0b000000_11111_00000_00000_00000_000000)
@@ -215,6 +223,8 @@ class Model:
             self.state.pl_regs.MEM_WB.read_data = read_mem(
                 prev_pl_regs.EX_MEM.alu_result, self.state.data_mem
             )
+            self.state.stats.mem_reads += 1
+
         # Writes to memory
         if prev_pl_regs.EX_MEM.cl.mem_write:
             write_mem(
@@ -222,6 +232,7 @@ class Model:
                 prev_pl_regs.EX_MEM.data,
                 self.state.data_mem,
             )
+            self.state.stats.mem_writes += 1
 
     def run_WB(self, prev_pl_regs: State.pl_regs):
         """Run the Write Back stage"""

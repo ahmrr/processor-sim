@@ -49,8 +49,6 @@ class Controller:
         self.model.run_ID(prev_pl_regs)
         self.model.run_IF(prev_pl_regs)
 
-        self.model.state.stats.instruction_cnt += 1
-
         # Exit if no more instructions
         if self.model.state.pc >= len(self.model.state.inst_mem) + 12:
             self.model.state.run = False
