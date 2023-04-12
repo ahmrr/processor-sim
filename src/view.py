@@ -2,9 +2,11 @@ from utils import *
 
 import sys
 import curses
+import platform
 
-# For macos
-curses.A_ITALIC = curses.A_BOLD
+# curses.A_ITALIC doesn't work on macos
+if platform.system() == "Darwin":
+    curses.A_ITALIC = curses.A_BOLD
 
 if __name__ == "__main__":
     print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
