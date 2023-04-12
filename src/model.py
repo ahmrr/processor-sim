@@ -271,7 +271,7 @@ class Model:
         resolve the hazard"""
 
         # If the instruciton is beq or j, stall until pc is updated
-        op = (prev_pl_regs.IF_ID.inst & 0b111111_00000_00000_00000_00000_000000) >> 25
+        op = (prev_pl_regs.IF_ID.inst & 0b111111_00000_00000_00000_00000_000000) >> 26
         if op == 0b000100 or op == 0b000010:
             return 1
         else:
