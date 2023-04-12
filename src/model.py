@@ -200,9 +200,6 @@ class Model:
         # Passes on data_2 in the case of a store word instruction
         self.state.pl_regs.EX_MEM.data = prev_pl_regs.ID_EX.data_2
 
-        # Passes on the jump address
-        self.state.pl_regs.EX_MEM.jump_addr = prev_pl_regs.ID_EX.jump_addr
-
     def run_MEM(self, prev_pl_regs: State.pl_regs):
         """Run the Memory Access stage"""
 
