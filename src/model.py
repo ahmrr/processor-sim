@@ -103,8 +103,8 @@ class Model:
 
         # Parse the jump address (FOR j-type)
         self.state.pl_regs.ID_EX.jump_addr = (
-            (prev_pl_regs.IF_ID.inst & 0b000000_11111_11111_11111_11111_111111) << 2
-        ) + (prev_pl_regs.IF_ID.pc & 0b11111000_00000000_00000000_00000000)
+            prev_pl_regs.IF_ID.inst & 0b000000_11111_11111_11111_11111_111111
+        )
 
     def run_EX(self, prev_pl_regs: State.pl_regs):
         """Run the ALU Execution stage"""
@@ -191,6 +191,11 @@ class Model:
         self.state.pl_regs.EX_MEM.branch_addr = prev_pl_regs.ID_EX.pc + (
             prev_pl_regs.ID_EX.imm << 2
         )
+
+        # Calculates the jump address
+        self.state.pl_regs.EX_MEM.jump_addr = (
+            prev_pl_regs.ID_EX.pc & 0b11111000_00000000_00000000_00000000
+        ) + (prev_pl_regs.ID_EX.jump_addr << 2)
 
         # Passes on data_2 in the case of a store word instruction
         self.state.pl_regs.EX_MEM.data = prev_pl_regs.ID_EX.data_2
