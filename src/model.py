@@ -1,6 +1,5 @@
 from view import *
 from utils import *
-import typing
 
 if __name__ == "__main__":
     print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
