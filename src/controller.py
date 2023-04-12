@@ -27,7 +27,9 @@ class Controller:
 
         # Create a new model with specified instruction, data memory, and step mode
         data_mem = bytearray(data_mem_size)
-        data_mem[0:8] = bytearray.fromhex("00 00 00 01 00 00 00 0A")
+        data_mem[0:8] = bytearray.fromhex(
+            "00 00 00 05 00 00 00 01 00 00 00 00 00 00 00 01"
+        )
         self.model = Model(bytearray(data), data_mem, step_mode)
 
     def control_loop(self):

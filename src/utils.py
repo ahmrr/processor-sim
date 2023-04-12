@@ -344,6 +344,7 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.mem_write = False
         cl.reg_write = False
         cl.mem_to_reg = False
+        cl.jump = False
         return cl
 
     op = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
@@ -357,6 +358,7 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.mem_write = False
         cl.reg_write = True
         cl.mem_to_reg = False
+        cl.jump = False
     elif op == 0b100011:  # lw
         cl.reg_dst = False
         cl.alu_op = 0b00
@@ -366,6 +368,7 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.mem_write = False
         cl.reg_write = True
         cl.mem_to_reg = True
+        cl.jump = False
     elif op == 0b101011:  # sw
         cl.reg_dst = False
         cl.alu_op = 0b00
@@ -375,6 +378,7 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.mem_write = True
         cl.reg_write = False
         cl.mem_to_reg = False
+        cl.jump = False
     elif op == 0b000100:  # beq
         cl.reg_dst = False
         cl.alu_op = 0b01
@@ -384,7 +388,17 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.mem_write = False
         cl.reg_write = False
         cl.mem_to_reg = False
+        cl.jump = False
     elif op == 0b000010:  # j
+        cl.reg_dst = False
+        cl.alu_op = 0b10
+        cl.alu_src = False
+        cl.branch = False
+
+        cl.mem_read = False
+        cl.mem_write = False
+        cl.reg_write = False
+        cl.mem_to_reg = False
         cl.jump = True
 
     return cl

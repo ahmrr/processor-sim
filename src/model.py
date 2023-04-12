@@ -22,9 +22,6 @@ class Model:
     def run_IF(self, prev_pl_regs: State.pl_regs):
         """Run the Instruction Fetch stage"""
 
-        # Update cycles
-        self.state.cycles += 1
-
         # If we are bubbling, run a nop
         if self.state.bubbles:
             self.state.pl_regs.IF_ID.pc = self.state.pc
@@ -32,24 +29,27 @@ class Model:
             self.state.bubbles -= 1
 
         else:
-            # Fetch instruction
-            self.state.pl_regs.IF_ID.inst = fetch_inst(
-                self.state.pc, self.state.inst_mem
-            )
-
             # If we want to branch and ALU result is 0, branch to PC + 4 + branch_addr
             if prev_pl_regs.EX_MEM.cl.branch and prev_pl_regs.EX_MEM.zero_flag:
                 self.state.pc = prev_pl_regs.EX_MEM.branch_addr
-            # Otherwise, go to next instruction
-            else:
-                self.state.pc += 4
 
             # If we want to jump, set pc to the jump address
             if prev_pl_regs.EX_MEM.cl.jump:
                 self.state.pc = prev_pl_regs.EX_MEM.jump_addr
 
+            # Fetch instruction
+            self.state.pl_regs.IF_ID.inst = fetch_inst(
+                self.state.pc, self.state.inst_mem
+            )
+
+            # Go to next instruction
+            self.state.pc += 4
+
             # Update pipeline PC
             self.state.pl_regs.IF_ID.pc = self.state.pc
+
+        # Update cycles
+        self.state.cycles += 1
 
     def run_ID(self, prev_pl_regs: State.pl_regs):
         """Run the Instruction Decode stage"""
@@ -62,6 +62,11 @@ class Model:
             prev_pl_regs.IF_ID.pc -= 4
             self.state.pc = prev_pl_regs.IF_ID.pc
             self.state.bubbles -= 1
+
+        # Checks for control hazard
+        self.state.bubbles = max(
+            self.is_control_hazard(prev_pl_regs), self.state.bubbles
+        )
 
         # Pass PC ahead to next pipeline register
         self.state.pl_regs.ID_EX.pc = prev_pl_regs.IF_ID.pc
@@ -99,7 +104,7 @@ class Model:
         # Parse the jump address (FOR j-type)
         self.state.pl_regs.ID_EX.jump_addr = (
             (prev_pl_regs.IF_ID.inst & 0b000000_11111_11111_11111_11111_111111) << 2
-        ) + (prev_pl_regs.IF_ID.pc << 28)
+        ) + (prev_pl_regs.IF_ID.pc & 0b11111000_00000000_00000000_00000000)
 
     def run_EX(self, prev_pl_regs: State.pl_regs):
         """Run the ALU Execution stage"""
@@ -191,7 +196,7 @@ class Model:
         self.state.pl_regs.EX_MEM.data = prev_pl_regs.ID_EX.data_2
 
         # Passes on the jump address
-        self.state.pl_regs.EX_MEM.jump_addr = prev_pl_regs.EX_MEM.jump_addr
+        self.state.pl_regs.EX_MEM.jump_addr = prev_pl_regs.ID_EX.jump_addr
 
     def run_MEM(self, prev_pl_regs: State.pl_regs):
         """Run the Memory Access stage"""
@@ -232,13 +237,13 @@ class Model:
         """Checks for data hazards, returns the number of bubbles needed to
         resolve the hazard"""
 
-        IF_ID_rs = self.state.regs[  # this is the value stored in rs
-            (prev_pl_regs.IF_ID.inst & 0b000000_11111_00000_00000_00000_000000) >> 21
-        ]
+        IF_ID_rs = (
+            prev_pl_regs.IF_ID.inst & 0b000000_11111_00000_00000_00000_000000
+        ) >> 21
 
-        IF_ID_rt = self.state.regs[  # this is the value stored in rt
-            (prev_pl_regs.IF_ID.inst & 0b000000_00000_11111_00000_00000_000000) >> 16
-        ]
+        IF_ID_rt = (
+            prev_pl_regs.IF_ID.inst & 0b000000_00000_11111_00000_00000_000000
+        ) >> 16
 
         EX_MEM_rd = prev_pl_regs.EX_MEM.reg
         MEM_WB_rd = prev_pl_regs.MEM_WB.reg
@@ -253,8 +258,19 @@ class Model:
         elif MEM_WB_rd == IF_ID_rt and prev_pl_regs.MEM_WB.cl.reg_write:
             return 1
         elif ID_EX_rt == IF_ID_rs and prev_pl_regs.ID_EX.cl.mem_read:
-            return 3
+            return 2
         elif ID_EX_rt == IF_ID_rt and prev_pl_regs.ID_EX.cl.mem_read:
-            return 3
+            return 2
+        else:
+            return 0
+
+    def is_control_hazard(self, prev_pl_regs: State.pl_regs) -> int:
+        """Checks for data hazards, returns the number of bubbles needed to
+        resolve the hazard"""
+
+        # If the instruciton is beq or j, stall until pc is updated
+        op = (prev_pl_regs.IF_ID.inst & 0b111111_00000_00000_00000_00000_000000) >> 25
+        if op == 0b000100 or op == 0b000010:
+            return 1
         else:
             return 0

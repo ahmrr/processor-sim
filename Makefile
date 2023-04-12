@@ -1,5 +1,5 @@
 PY:=python3.11
-INFILE:=test/sample3.dat
+INFILE:=test/fib.dat
 FLAGS:=--step --memory 4096
 MAIN:=src/controller.py
 
