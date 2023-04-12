@@ -162,15 +162,6 @@ class State:
 
     data_mem: bytearray
     inst_mem: bytearray
-    # Control lines
-    # control_lines = types.SimpleNamespace(
-    #     {
-    #         "reg_write": False,
-    #         "mem_read": False,
-    #         "mem_write": False,
-    #         "reg_read": False,
-    #     }
-    # )
 
     run = True
     step_mode = False
@@ -191,7 +182,7 @@ def fetch_inst(pc: int, inst_mem: bytearray) -> int:
     # If we are still inside inst_mem, return the instruction
     if pc < len(inst_mem):
         return int.from_bytes(inst_mem[pc : pc + 4])
-    # Else return a nop
+    # Else the requested address is OOB, so return a nop
     else:
         return 0x00000000
 
@@ -241,81 +232,6 @@ def decode_inst(inst: int) -> str:
             decoded_inst = f"{key} {inst_addr}"
 
     return decoded_inst
-
-
-def data_hazard(inst_1: int, inst_2: int) -> bool:
-    """Checks if two instructions have a RAW data hazard"""
-
-    # Get information of each instruction based on opcode/func field(s)
-    for key, val in instructions.items():
-        if (
-            val["i_type"] == "R"
-            and val["i_func"] == inst_1 & 0b000000_00000_00000_00000_00000_111111
-            or val["i_opcode"]
-            == (inst_1 & 0b111111_00000_00000_00000_00000_000000) >> 26
-        ):
-            inst_1_name = key
-            inst_1_info = val
-        if (
-            val["i_type"] == "R"
-            and val["i_func"] == inst_2 & 0b000000_00000_00000_00000_00000_111111
-            or val["i_opcode"]
-            == (inst_2 & 0b111111_00000_00000_00000_00000_000000) >> 26
-        ):
-            inst_2_name = key
-            inst_2_info = val
-
-    # No data hazards with J-type instructions
-    if inst_1_info["i_type"] == "J" or inst_2_info["i_type"] == "J":
-        return False
-    # If one instruction is R-type and the other is I-type
-    elif inst_1_info["i_type"] == "R" and inst_2_info["i_type"] == "I":
-        # inst_1_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
-        # inst_1_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
-        inst_1_rd = (inst_1 & 0b000000_00000_00000_11111_00000_000000) >> 11
-
-        inst_2_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
-        inst_2_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
-
-        # Load or store op
-        if inst_1_info["i_ops"] == 2:
-            return inst_1_rd == inst_2_rs
-        # Other I-type op
-        else:
-            return inst_1_rd == inst_2_rs or inst_1_rd == inst_2_rt
-    # If one instruction is I-type and the other is R-type
-    elif inst_1_info["i_type"] == "I" and inst_2_info["i_type"] == "R":
-        return False
-    # If both instructions are I-type
-    elif inst_1_info["i_type"] == "I" and inst_2_info["i_type"] == "I":
-        # inst_1_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
-        inst_1_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
-
-        inst_2_rs = (inst_2 & 0b000000_11111_00000_00000_00000_000000) >> 21
-        inst_2_rt = (inst_2 & 0b000000_00000_11111_00000_00000_000000) >> 16
-
-        # First instruction is load, second is load/store op
-        if inst_1_name == "lw" and inst_2_info["i_ops"] == 2:
-            return inst_1_rt == inst_2_rs
-        # First instruction is load, second is some other I-type op
-        elif inst_1_name == "lw" and inst_2_info["i_ops"] == 3:
-            return inst_1_rt == inst_2_rs or inst_1_rt == inst_2_rt
-        # First instruction is some other I-type op
-        else:
-            return False
-    # If both instructions are R-type
-    elif inst_1_info["i_type"] == "R" and inst_2_info["i_type"] == "R":
-        # inst_1_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
-        # inst_1_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
-        inst_1_rd = (inst_1 & 0b000000_00000_00000_11111_00000_000000) >> 11
-
-        inst_2_rs = (inst_1 & 0b000000_11111_00000_00000_00000_000000) >> 21
-        inst_2_rt = (inst_1 & 0b000000_00000_11111_00000_00000_000000) >> 16
-        # inst_2_rd = (inst_1 & 0b000000_00000_00000_11111_00000_000000) >> 11
-
-        return inst_1_rd == inst_2_rs or inst_1_rd == inst_2_rt
-
-    return False
 
 
 def shutdown(screen):
