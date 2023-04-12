@@ -90,8 +90,6 @@ class View:
         self.stat_win.addstr(str(state.stats.mem_writes))
         self.stat_win.addstr("\tALU slts   ", curses.A_ITALIC)
         self.stat_win.addstr(f"{state.stats.alu_slt_cnt}")
-        self.stat_win.addstr(10, 2, f"Bubbles left\t", curses.A_ITALIC)
-        self.stat_win.addstr(f"{state.bubbles}")
 
     def _disp_pl_info_win(self, state: State, pl_reg: str):
         clear_win(self.pl_info_win)
