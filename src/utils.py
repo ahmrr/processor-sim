@@ -2,6 +2,7 @@ import sys
 import typing
 import curses
 
+# * Print error if this file is attempted to run
 if __name__ == "__main__":
     print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
     sys.exit(0)
@@ -169,7 +170,7 @@ class State:
 
 
 class tty:
-    """Stores ANSI color codes"""
+    """Stores program-used ANSI escape codes"""
 
     END = "\033[0m"
     BLD = "\033[1m"
@@ -179,63 +180,103 @@ class tty:
 
 
 def fetch_inst(pc: int, inst_mem: bytearray) -> int:
-    # If we are still inside inst_mem, return the instruction
+    """Fetch an instruction from instruction memory
+    `pc: int` - the PC (byte offset) to fetch instruction at
+    `inst_mem: bytearray` - the instruction memory to fetch instruction from
+
+    `return: int` - the fetched instruction, or `nop`/0 if out of bounds
+    """
+
+    # * If we are still inside inst_mem, fetch and return the instruction
     if pc < len(inst_mem):
         return int.from_bytes(inst_mem[pc : pc + 4])
-    # Else the requested address is OOB, so return a nop
+    # * Otherwise, the requested address is out of bounds; return nop
     else:
-        return 0x00000000
+        return 0
 
 
 def write_mem(start: int, data: int, data_mem: bytearray):
+    """Write a specific amount of bytes to data memory
+    `start: int` - the starting position to insert at
+    `data: int` - the data (always 4 bytes)
+    `data_mem: bytearray` - the data memory to insert in
+    """
+
     data_mem[start : start + 4] = data.to_bytes(4, signed=True)
 
 
-def read_mem(start: int, data_mem: bytearray):
+def read_mem(start: int, data_mem: bytearray) -> int:
+    """Read a specific amount of bytes from data memory
+    `start: int` - the starting position to read at
+    `data_mem: bytearray` - the data memory to read from
+
+    `return: int` - the value read from memory
+    """
+
     return int.from_bytes(data_mem[start : start + 4], signed=True)
 
 
 def decode_inst(inst: int) -> str:
-    """Converts binary to a MIPS instruction"""
+    """Converts binary to a MIPS instruction
+    `inst: int` - the instruction to decode
 
+    `return: str` - the decoded instruction
+    """
+
+    # * Read opcode and possible funct field
     inst_opcode = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
     inst_func = inst & 0b000000_00000_00000_00000_00000_111111
 
-    # For nop
+    # * Initialize to nop
     decoded_inst = "nop"
 
+    # * Iterate over keys and values in all possible instructions
     for key, val in instructions.items():
-        if val["i_type"] == "R" and val["i_func"] == inst_func:
+        # * If R-type instruction matched
+        if val["i_type"] == "R" and val["i_func"] == inst_func and inst_opcode == 0:
+            # * Read register numbers
             inst_rs = (inst & 0b000000_11111_00000_00000_00000_000000) >> 21
             inst_rt = (inst & 0b000000_00000_11111_00000_00000_000000) >> 16
             inst_rd = (inst & 0b000000_00000_00000_11111_00000_000000) >> 11
 
+            # * Assemble decoded instruction
             decoded_inst = f"{key} ${inst_rd}, ${inst_rs}, ${inst_rt}"
+        # * If I-type instruction matched
         elif val["i_type"] == "I" and val["i_opcode"] == inst_opcode:
+            # * Read register numbers and immediate value
             inst_rs = (inst & 0b000000_11111_00000_00000_00000_000000) >> 21
             inst_rt = (inst & 0b000000_00000_11111_00000_00000_000000) >> 16
             inst_imm = inst & 0b000000_00000_00000_11111_11111_111111
 
+            # * Convert unsigned immediate to two's-complement signed integer
             if inst_imm & 0b000000_00000_00000_10000_00000_000000:
                 inst_imm = inst_imm - 0b000000_00000_00001_00000_00000_000000
 
+            # * If lw or sw, assemble the decoded instruction
             if val["i_ops"] == 2:
                 decoded_inst = f"{key} ${inst_rt}, {inst_imm}(${inst_rs})"
+            # * If beq, assemble the decoded instruction
             elif val["i_ops"] == 3:
                 decoded_inst = f"{key} ${inst_rs}, ${inst_rt}, {inst_imm}"
+        # * If J-type instruction matched
         elif val["i_type"] == "J" and val["i_opcode"] == inst_opcode:
+            # * Read address value
             inst_addr = inst & 0b000000_11111_11111_11111_11111_111111
 
+            # * Convert unsigned address to two's-complement signed integer
             if inst_addr & 0b000000_10000_00000_00000_00000_000000:
                 inst_addr = inst_addr - 0b000001_00000_00000_00000_00000_000000
 
+            # * Assemble the decoded instruction
             decoded_inst = f"{key} {inst_addr}"
 
     return decoded_inst
 
 
-def shutdown(screen):
-    """Resets terminal and shuts down a curses screen"""
+def shutdown(screen: curses.window):
+    """Resets terminal and shuts down a curses screen
+    `screen: curses.window` - the screen to shut down
+    """
 
     curses.echo()
     curses.nocbreak()
@@ -245,11 +286,15 @@ def shutdown(screen):
 
 
 def control(inst: int) -> State.pl_regs.ID_EX.cl:
-    """Returns control line values for an instruction ins"""
+    """Returns control line values for an instruction ins
+    `inst: int` - the instruction to return values for
+
+    `return: State.pl_regs.ID_EX.cl` - the control lines corresponding to the instruction
+    """
 
     cl = State.pl_regs.ID_EX.cl
 
-    # nop/bubble
+    # * If instruction is nop
     if inst == 0x00000000:
         cl.reg_dst = False
         cl.alu_op = 0b10
@@ -263,8 +308,11 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.jump = False
         return cl
 
+    # * Read instruction opcode
     op = (inst & 0b111111_00000_00000_00000_00000_000000) >> 26
-    if op == 0b000000:  # r-type
+
+    # * If instruction is R-type
+    if op == 0b000000:
         cl.reg_dst = True
         cl.alu_op = 0b10
         cl.alu_src = False
@@ -275,7 +323,8 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.reg_write = True
         cl.mem_to_reg = False
         cl.jump = False
-    elif op == 0b100011:  # lw
+    # * If instruction is lw
+    elif op == 0b100011:
         cl.reg_dst = False
         cl.alu_op = 0b00
         cl.alu_src = True
@@ -285,7 +334,8 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.reg_write = True
         cl.mem_to_reg = True
         cl.jump = False
-    elif op == 0b101011:  # sw
+    # * If instruction is sw
+    elif op == 0b101011:
         cl.reg_dst = False
         cl.alu_op = 0b00
         cl.alu_src = True
@@ -295,7 +345,8 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.reg_write = False
         cl.mem_to_reg = False
         cl.jump = False
-    elif op == 0b000100:  # beq
+    # * If instruction is beq
+    elif op == 0b000100:
         cl.reg_dst = False
         cl.alu_op = 0b01
         cl.alu_src = False
@@ -305,7 +356,8 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
         cl.reg_write = False
         cl.mem_to_reg = False
         cl.jump = False
-    elif op == 0b000010:  # j
+    # * If instruction is j
+    elif op == 0b000010:
         cl.reg_dst = False
         cl.alu_op = 0b10
         cl.alu_src = False
@@ -320,36 +372,71 @@ def control(inst: int) -> State.pl_regs.ID_EX.cl:
     return cl
 
 
-def twos_decode(num: int, bits: int):
-    """Converts a signed two's-complement number of specified length to a signed decimal integer"""
+def twos_decode(num: int, bits: int) -> int:
+    """Converts a signed two's-complement number of specified length to a signed decimal integer
+    `num: int` - the number to convert
+    `bits: int` - the size of the number (including sign bit)
+
+    `return: int` - the signed two's-complement integer
+    """
 
     return num - (1 << bits) if num & 1 << (bits - 1) else num
 
 
-def split_chunks(string: str, size: int):
+def split_chunks(string: str, size: int) -> list[str]:
+    """Splits a string into chunks of a specific size
+    `string: str` - the string to split
+    `size: int` - the size of each chunk
+
+    `return: list[str]` - the list containing chunked strings
+    """
+
     return [string[i : i + size] for i in range(0, len(string), size)]
 
 
 def clear_block(win: curses.window, start_y: int, start_x: int, end_y: int, end_x: int):
+    """Clear a specific block in a curses window
+    `win: curses.window` - the window to clear
+    `start_y: int` - the starting y value
+    `start_x: int` - the starting x value
+    `end_y: int` - the ending y value
+    `end_x: int` - the ending x value
+    """
+
+    # * Add spaces over the entire interval
     for y in range(start_y, end_y):
         win.addstr(y, start_x, " " * (end_x - start_x))
 
 
 def clear_win(win: curses.window):
+    """Clear a curses window, taking into consideration a 1-wide inner border
+    `win: curses.window` - the window to clear
+    """
+
+    # * Add spaces over the entire window
     for y in range(1, win.getmaxyx()[0] - 1):
         win.addstr(y, 2, " " * (win.getmaxyx()[1] - 3))
 
 
 class Instruction(typing.TypedDict):
+    """Stores a single instruction type
+
+    `i_opcode: int` - the opcode of the instruction
+    `i_type: typing.Literal["I", "R", "J"]` - the type of instruction; either R, I, or J
+    `i_func: typing.NotRequired[int]` - the funct field of the instruction; not required
+    `i_ops: int` - the number of operands (space-separated values) the instruction takes
+    """
+
     i_opcode: int
     i_type: typing.Literal["I", "R", "J"]
     i_func: typing.NotRequired[int]
     i_ops: int
 
 
-pl_registers: list[str] = ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]
+# * The four pipeline registers
+PL_REGS: list[str] = ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]
 
-
+# * All implemented instructions
 instructions: dict[str, Instruction] = {
     "lw": {"i_opcode": 0b100011, "i_type": "I", "i_ops": 2},
     "sw": {"i_opcode": 0b101011, "i_type": "I", "i_ops": 2},

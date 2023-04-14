@@ -1,6 +1,7 @@
 from view import *
 from utils import *
 
+# * Print error if this file is attempted to run
 if __name__ == "__main__":
     print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
     sys.exit(0)
@@ -280,7 +281,7 @@ class Model:
         """Checks for data hazards, returns the number of bubbles needed to
         resolve the hazard"""
 
-        # If the instruciton is beq or j, stall until pc is updated
+        # If the instruction is beq or j, stall until pc is updated
         op = (prev_pl_regs.IF_ID.inst & 0b111111_00000_00000_00000_00000_000000) >> 26
         if op == 0b000100 or op == 0b000010:
             return 1

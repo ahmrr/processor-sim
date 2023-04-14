@@ -4,20 +4,21 @@ import sys
 import curses
 import platform
 
-# curses.A_ITALIC doesn't work on macos
-if platform.system() == "Darwin":
-    curses.A_ITALIC = curses.A_BOLD
-
+# * Print error if this file is attempted to run
 if __name__ == "__main__":
     print("\033[91;1merror:\033[0m wrong file; please run src/controller.py.")
     sys.exit(0)
+
+# * Replace italic with bold on MacOS
+if platform.system() == "Darwin":
+    curses.A_ITALIC = curses.A_BOLD
 
 
 class View:
     def __init__(self, step_mode: bool):
         """Initialize a new view"""
 
-        # Create new curses screen
+        # * Create new curses screen
         self.screen = curses.initscr()
         self.screen.keypad(True)
         curses.noecho()
@@ -27,11 +28,10 @@ class View:
             curses.start_color()
             curses.use_default_colors()
             curses.init_pair(1, -1, -1)
-            # curses.init_pair(2, curses.COLOR_BLUE, -1)
 
         self._create_win()
 
-        # Set the exception hook to first close curses and then print the exception, so that terminal isn't ruined
+        # * Set the exception hook to first close curses and then print the exception, so that terminal isn't ruined
         def exc_hook(exctype, value, traceback):
             shutdown(self.screen)
             if issubclass(exctype, curses.error):
@@ -41,16 +41,28 @@ class View:
 
         sys.excepthook = exc_hook
 
+        # * Set the appropriate rerender function
         self.rerender = self._rerender_step if step_mode else self._rerender_jump
 
+        # * Set local class variables
         self.pl_stage = 0
         self.data_mem_start = 0
 
     def _disp_reg_win(self, state: State):
+        """Update the register window, based on some current state
+
+        `state: State` - the new state to update
+        """
+
+        # * Clear the register window
         clear_win(self.reg_win)
+
+        # * Print the title
         self.reg_win.addstr(
             1, 2, "Registers", curses.A_BOLD | curses.A_ITALIC | curses.A_UNDERLINE
         )
+
+        # * Print all registers, and the PC
         for i in range(32):
             self.reg_win.addstr(
                 3 + (i % 8),
@@ -64,10 +76,20 @@ class View:
         self.reg_win.addstr(f"{state.pc:#010x}"[2:])
 
     def _disp_stat_win(self, state: State):
+        """Update the stats window, based on some current state
+
+        `state: State` - the new state to update
+        """
+
+        # * Clear the stats window
         clear_win(self.stat_win)
+
+        # * Print the title
         self.stat_win.addstr(
             1, 2, "Stats", curses.A_BOLD | curses.A_ITALIC | curses.A_UNDERLINE
         )
+
+        # * Print all processor stats
         self.stat_win.addstr(3, 2, "Binary inst.\t", curses.A_ITALIC)
         self.stat_win.addstr(f"{state.pl_regs.IF_ID.inst:#034b}"[2:])
         self.stat_win.addstr(4, 2, "MIPS inst.\t", curses.A_ITALIC)
@@ -92,8 +114,15 @@ class View:
         self.stat_win.addstr(f"{state.stats.alu_slt_cnt}")
 
     def _disp_pl_info_win(self, state: State, pl_reg: str):
+        """Update the pipeline information window, based on some current state
+
+        `state: State` - the new state to update
+        """
+
+        # * Clear the pipeline info window
         clear_win(self.pl_info_win)
 
+        # * Print the title
         self.pl_info_win.addstr(
             1,
             2,
@@ -101,7 +130,9 @@ class View:
             curses.A_BOLD | curses.A_ITALIC | curses.A_UNDERLINE,
         )
 
+        # * Switch to the current selected pipeline register
         match pl_reg:
+            # * If it's the IF/ID register
             case "IF/ID":
                 self.pl_info_win.addstr(
                     3, 2, "IF/ID register", curses.A_ITALIC | curses.A_BOLD
@@ -110,6 +141,7 @@ class View:
                 self.pl_info_win.addstr(f"{state.pl_regs.IF_ID.pc:#010x}")
                 self.pl_info_win.addstr(5, 2, f"Inst.\t\t", curses.A_ITALIC)
                 self.pl_info_win.addstr(f"{state.pl_regs.IF_ID.inst:#010x}")
+            # * If it's the ID/EX register
             case "ID/EX":
                 self.pl_info_win.addstr(
                     3,
@@ -150,6 +182,7 @@ class View:
                 self.pl_info_win.addstr(str(int(state.pl_regs.ID_EX.cl.alu_src)))
                 self.pl_info_win.addstr(12, 32, f"ALU op\t\t", curses.A_ITALIC)
                 self.pl_info_win.addstr(str(f"{state.pl_regs.ID_EX.cl.alu_op:#02b}"))
+            # * If it's the EX/MEM register
             case "EX/MEM":
                 self.pl_info_win.addstr(
                     3,
@@ -182,7 +215,7 @@ class View:
                 self.pl_info_win.addstr(str(int(state.pl_regs.EX_MEM.cl.branch)))
                 self.pl_info_win.addstr(9, 32, f"Jump\t\t", curses.A_ITALIC)
                 self.pl_info_win.addstr(str(int(state.pl_regs.EX_MEM.cl.jump)))
-
+            # * If it's the MEM/WB register
             case "MEM/WB":
                 self.pl_info_win.addstr(
                     3,
@@ -210,7 +243,16 @@ class View:
         )
 
     def _disp_data_mem_win(self, state: State, start: int):
+        """Update the data memory window, based on some current state and start index
+
+        `state: State` - the new state to update
+        `start: int` - the start index to start displaying from
+        """
+
+        # * Clear the data memory window
         clear_win(self.data_mem_win)
+
+        # * Print the title
         self.data_mem_win.addstr(
             1,
             2,
@@ -218,8 +260,10 @@ class View:
             curses.A_BOLD | curses.A_ITALIC | curses.A_UNDERLINE,
         )
 
+        # * If the length of data memory is more than 65535, we need 8 hex digits to display it
         fmt = 6 if len(state.data_mem) <= 0x10000 else 10
 
+        # * Display the proper data memory window
         for i in range(
             0,
             min(
@@ -241,8 +285,12 @@ class View:
         )
 
     def _rerender_step(self, state: State):
-        """Rerender the view with prompt for user input"""
+        """Rerender the view with prompt for user input
 
+        `state: State` - the state to render
+        """
+
+        # * Display and refresh all windows
         self._disp_reg_win(state)
         self.reg_win.refresh()
 
@@ -252,12 +300,11 @@ class View:
         self._disp_data_mem_win(state, self.data_mem_start)
         self.data_mem_win.refresh()
 
-        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
         self.pl_info_win.refresh()
 
-        # If there are more instructions left
+        # * If there are more instructions left
         if state.run:
-            # Return if user enters step command (move to next instruction), otherwise break and shutdown
             self.data_mem_win.addstr(
                 self.data_mem_win.getmaxyx()[0] - 1,
                 2,
@@ -266,20 +313,26 @@ class View:
             )
             self.data_mem_win.addstr(f"{'; q: quit, s: step ':─<21}", curses.A_ITALIC)
             self.data_mem_win.refresh()
+            # * Query user input
             while True:
                 match self.screen.getkey():
+                    # * Quit
                     case "q":
                         break
+                    # * Step forward
                     case "s":
                         return
+                    # * Next pipeline reg
                     case "KEY_RIGHT":
                         self.pl_stage = (self.pl_stage + 1) % 4
-                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
                         self.pl_info_win.refresh()
+                    # * Prev pipeline reg
                     case "KEY_LEFT":
                         self.pl_stage = (self.pl_stage - 1) % 4
-                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
                         self.pl_info_win.refresh()
+                    # * Prev data memory frame
                     case "KEY_UP":
                         if (
                             self.data_mem_start
@@ -293,6 +346,7 @@ class View:
                         self.data_mem_win.refresh()
                         self._disp_data_mem_win(state, self.data_mem_start)
                         self.data_mem_win.refresh()
+                    # * Next data memory frame
                     case "KEY_DOWN":
                         if self.data_mem_start + 16 * (
                             self.data_mem_win.getmaxyx()[0] - 6
@@ -302,9 +356,8 @@ class View:
                             )
                         self._disp_data_mem_win(state, self.data_mem_start)
                         self.data_mem_win.refresh()
-        # If no more instructions left
+        # * If no more instructions left
         else:
-            # Discard input until user enters quit command
             self.data_mem_win.addstr(
                 self.data_mem_win.getmaxyx()[0] - 1,
                 2,
@@ -313,18 +366,23 @@ class View:
             )
             self.data_mem_win.addstr(f"{'; q: quit ':─<21}", curses.A_ITALIC)
             self.data_mem_win.refresh()
+            # * Query user input
             while True:
                 match self.screen.getkey():
+                    # * Quit
                     case "q":
                         break
+                    # * Next pipeline reg
                     case "KEY_RIGHT":
                         self.pl_stage = (self.pl_stage + 1) % 4
-                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
                         self.pl_info_win.refresh()
+                    # * Prev pipeline reg
                     case "KEY_LEFT":
                         self.pl_stage = (self.pl_stage - 1) % 4
-                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
                         self.pl_info_win.refresh()
+                    # * Prev data memory frame
                     case "KEY_UP":
                         if (
                             self.data_mem_start
@@ -338,6 +396,7 @@ class View:
                         self.data_mem_win.refresh()
                         self._disp_data_mem_win(state, self.data_mem_start)
                         self.data_mem_win.refresh()
+                    # * Next data memory frame
                     case "KEY_DOWN":
                         if self.data_mem_start + 16 * (
                             self.data_mem_win.getmaxyx()[0] - 6
@@ -348,12 +407,15 @@ class View:
                         self._disp_data_mem_win(state, self.data_mem_start)
                         self.data_mem_win.refresh()
 
-        # Shutdown curses and exit
+        # * Shutdown curses and exit
         shutdown(self.screen)
         sys.exit(0)
 
     def _rerender_jump(self, state: State):
-        """Rerender the view without prompting for user step input"""
+        """Rerender the view without prompting for user step input
+
+        `state: State` - the state to render
+        """
 
         self._disp_reg_win(state)
         self.reg_win.refresh()
@@ -364,15 +426,15 @@ class View:
         self._disp_data_mem_win(state, self.data_mem_start)
         self.data_mem_win.refresh()
 
-        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
         self.pl_info_win.refresh()
 
-        # Do nothing if there are more instructions left
+        # * Do nothing if there are more instructions left
         if state.run:
             return
-        # If no more instructions left
+        # * If no more instructions left
         else:
-            # Discard input until user enters quit command
+            # * Discard input until user enters quit command
             self.data_mem_win.addstr(
                 self.data_mem_win.getmaxyx()[0] - 1,
                 2,
@@ -387,11 +449,11 @@ class View:
                         break
                     case "KEY_RIGHT":
                         self.pl_stage = (self.pl_stage + 1) % 4
-                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
                         self.pl_info_win.refresh()
                     case "KEY_LEFT":
                         self.pl_stage = (self.pl_stage - 1) % 4
-                        self._disp_pl_info_win(state, pl_registers[self.pl_stage])
+                        self._disp_pl_info_win(state, PL_REGS[self.pl_stage])
                         self.pl_info_win.refresh()
                     case "KEY_UP":
                         if (
@@ -416,11 +478,13 @@ class View:
                         self._disp_data_mem_win(state, self.data_mem_start)
                         self.data_mem_win.refresh()
 
-        # Shutdown curses and exit
+        # * Shutdown curses and exit
         shutdown(self.screen)
         sys.exit(0)
 
     def _create_win(self):
+        """Initialize windows"""
+
         lines, cols = self.screen.getmaxyx()
 
         reg_win_dim = (14, cols // 2)
@@ -432,7 +496,7 @@ class View:
         self.stat_win = curses.newwin(
             stat_win_dim[0], stat_win_dim[1], 0, reg_win_dim[1]
         )
-        # self.pl_win = curses.newwin(lines // 3, cols // 2, lines // 3, 0)
+
         self.data_mem_win = curses.newwin(
             data_win_dim[0], data_win_dim[1], reg_win_dim[0], 0
         )
@@ -447,9 +511,6 @@ class View:
 
         self.stat_win.border(0, 0, 0, " ", 0, 0, curses.ACS_VLINE, curses.ACS_VLINE)
         self.stat_win.refresh()
-
-        # self.pl_win.border(0, " ", 0, " ", 0, curses.ACS_HLINE, curses.ACS_VLINE, " ")
-        # self.pl_win.refresh()
 
         self.data_mem_win.border(0, " ", 0, 0, 0, curses.ACS_HLINE, 0, curses.ACS_HLINE)
         self.data_mem_win.refresh()
