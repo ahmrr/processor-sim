@@ -5,3 +5,6 @@ MAIN:=src/controller.py
 
 run:
 	$(PY) $(MAIN) $(FLAGS) $(INFILE)
+
+zip:
+	zip -x .git/\* .vscode/\* __pycache__/\* src/__pycache__/\* .gitignore LICENSE -r ../project3.zip .
