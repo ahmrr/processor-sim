@@ -67,8 +67,8 @@ $3 = $4 + $0
 $4 = $5 + $0
 $1 = $1 - $2
 if ($1 == $0)
-    branch_to_line(1)
-jump_to_pc(4)
+    branch_n_instructions_ahead(1)
+jump_to_instruction(4)
 *(0x0) = $3
 ```
 
